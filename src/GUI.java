@@ -1,3 +1,4 @@
+package src;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
@@ -21,10 +22,10 @@ public class GUI {
     private static final int OUTER_BORDER_SIZE = 20; // Size of the border around the grid
 
     // Map of color names to Color objects (ordered)
-    static final Map<String, Color> COLOR_MAP = new LinkedHashMap<>();
+    public static final Map<String, Color> COLOR_MAP = new LinkedHashMap<>();
 
     // Reads colors from colors.json and populates COLOR_MAP
-    private static void loadColorsFromJson(String filename) {
+    public static void loadColorsFromJson(String filename) {
         try (FileReader reader = new FileReader(filename)) {
             JSONObject obj = new JSONObject(new JSONTokener(reader));
             for (String name : obj.keySet()) {
@@ -43,7 +44,7 @@ public class GUI {
         // Populate the list of colors
         loadColorsFromJson("data/colors.json");
 
-        Board board = new Board("boards/board.json");
+        Board board = new Board("boards/board2.json");
         board.getLocation(0, 0).checkConnections(false);
         board.getLocation(0, 6).checkConnections(false);
         board.getLocation(6, 6).checkConnections(false);

@@ -1,3 +1,4 @@
+package src;
 import java.awt.Color;
 import java.util.ArrayList;
 
@@ -59,13 +60,22 @@ public class Location {
                 Location other = board.getLocation(coordinate.add(direction));
                 
                 if (color == null && other.getColor() != null) {
+                    // Check again in case we already checked a direction with no color
                     setColor(other.getColor());
                     updateColor(); 
-                    // Check again in case we already checked a direction with no color
+                    
+                    // There's an edge case where this forces a new connection
+                    if (getMaxConnections() - countConnections() > 0) {
+                        checkConnections(true);
+                    }
                 } else if (color != null && other.getColor() == null) {
+                    // Propagate the color updates through the neighbor
                     other.setColor(color);
                     other.updateColor(); 
-                    // Propagate the color updates through the neighbor
+                    
+                    if (other.getMaxConnections() - other.countConnections() > 0) {
+                        other.checkConnections(true);
+                    }
                 } else if (color != null && other.getColor() != null && !color.equals(other.getColor())) {
                     // This shouldn't ever happen
                     System.err.println("Color conflict between " + this + " and " + other);
@@ -162,8 +172,7 @@ public class Location {
 
     // Checks a special and particularly complicated case that's forbidden, when a given path bends back on itself
     // Assumes location is correct and in bounds
-    private boolean isUTurn(Coordinate direction, Location other) {
-        // TODO find an example that'll actually test this
+    public boolean isUTurn(Coordinate direction, Location other) {
         Coordinate leftOffset = Coordinate.leftTurn(direction);
         Coordinate rightOffset = Coordinate.rightTurn(direction);
         int dirIndex = Coordinate.toIndex(direction);
@@ -177,6 +186,8 @@ public class Location {
 
             if (connections[leftIndex] && (leftNeighbor.getConnections()[dirIndex] || other.getConnections()[leftIndex])) {
                 return true;
+            } else if (other.getConnections()[leftIndex] && leftNeighbor.getConnections()[dirIndex]) {
+                return true;
             }
         }
 
@@ -187,6 +198,9 @@ public class Location {
 
             if (connections[rightIndex] && (rightNeighbor.getConnections()[dirIndex] || other.getConnections()[rightIndex])) {
                 return true;
+            } else if (other.getConnections()[rightIndex] && rightNeighbor.getConnections()[dirIndex]) {
+                return true;
+
             }
         }
         

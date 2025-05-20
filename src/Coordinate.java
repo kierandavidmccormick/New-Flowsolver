@@ -1,3 +1,4 @@
+package src;
 /**
  * Represents a coordinate in a 2D grid.
  */

@@ -1,3 +1,4 @@
+package src;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 
@@ -83,5 +84,9 @@ public class Board {
 
     public int getSize() {
         return size;
+    }
+
+    public Location[][] getGrid() {
+        return grid;
     }
 }
