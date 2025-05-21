@@ -45,9 +45,7 @@ public class GUI {
         loadColorsFromJson("data/colors.json");
 
         Board board = new Board("boards/board2.json");
-        board.getLocation(0, 0).checkConnections(false);
-        board.getLocation(0, 6).checkConnections(false);
-        board.getLocation(6, 6).checkConnections(false);
+        board.updateAll();
 
         SwingUtilities.invokeLater(() -> {
             JFrame frame = new JFrame("Grid");

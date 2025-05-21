@@ -2,9 +2,6 @@ package src;
 import java.awt.Color;
 import java.util.ArrayList;
 
-// TODO redo the update logic; color changes and connection changes can trigger each other
-// TODO that *needs* a test suite first, though
-
 /* Container for all the data associated with a single grid square */
 public class Location {
 
@@ -13,6 +10,7 @@ public class Location {
     private final Board board;
     private Color color;
     private final boolean isStart;
+    private boolean edited = false; // Whether this location has been edited since the last check;
 
     /**
      * @param c Coordinate of this location
@@ -33,7 +31,6 @@ public class Location {
     // Updates self and other connections as necessary
     // Handles color updates, but not connection updates; those belong to the calling function
     // Assumes that location is valid to connect to
-    // TODO revise
     public void connectTo(Coordinate direction, Location other) {
 
         int index = Coordinate.toIndex(direction);
@@ -44,13 +41,13 @@ public class Location {
 
         connections[index] = true;
         other.connections[Coordinate.getOppositeIndex(index)] = true;
+        other.edited = true;
         if (color != other.getColor()) {
             other.updateColor();
         }
     }
 
     // Updates the color of this location and all connected uncolored locations
-    // TODO revise
     public void updateColor() {
 
         for (int i = 0; i < connections.length; i++) {
@@ -66,7 +63,8 @@ public class Location {
                     
                     // There's an edge case where this forces a new connection
                     if (getMaxConnections() - countConnections() > 0) {
-                        checkConnections(true);
+                        edited = true;
+                        registerUpdate();
                     }
                 } else if (color != null && other.getColor() == null) {
                     // Propagate the color updates through the neighbor
@@ -74,7 +72,8 @@ public class Location {
                     other.updateColor(); 
                     
                     if (other.getMaxConnections() - other.countConnections() > 0) {
-                        other.checkConnections(true);
+                        other.edited = true;
+                        other.registerUpdate();
                     }
                 } else if (color != null && other.getColor() != null && !color.equals(other.getColor())) {
                     // This shouldn't ever happen
@@ -85,12 +84,7 @@ public class Location {
     }
 
     // Makes any connections that can be guaranteed to be valid
-    // TODO add tests
-    // TODO revise this
-    /** 
-     * @param edited Whether this location was edited before its connection check was called; if so, it needs to propagate a check to all its neighbors
-     */
-    public void checkConnections(boolean edited) {
+    public void checkConnections() {
 
         // List of directions that cannot be connected to
         ArrayList<Coordinate> blockedDirections = new ArrayList<>();
@@ -129,11 +123,12 @@ public class Location {
             for (Coordinate dir : Coordinate.DIRECTIONS) {
                 Coordinate newCoordinate = coordinate.add(dir);
                 if (board.isInBounds(newCoordinate)) {
-                    board.getLocation(newCoordinate).checkConnections(directionsEdited.contains(dir));
+                    board.getLocation(newCoordinate).registerUpdate();
                 }
             }
         }
-        
+
+        edited = false; // Reset the edited flag
     }
 
     // Determines whether it's valid to make a connection in the given direction
@@ -248,6 +243,12 @@ public class Location {
             return 1;
         } else {
             return 2;
+        }
+    }
+
+    private void registerUpdate() {
+        if (!board.updatesScheduled.contains(this)) {
+            board.updatesScheduled.add(this);
         }
     }
 }

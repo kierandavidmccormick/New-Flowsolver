@@ -195,7 +195,9 @@ public class ConnectionTest {
         Location r2c1 = board.getLocation(2, 1);
         Location r2c2 = board.getLocation(2, 2);
 
-        r0c0.checkConnections(false);
+        board.updatesScheduled.clear(); // Clear the queue so we can test the propagation behavior
+        board.updatesScheduled.add(r0c0);
+        board.updateAll();
 
         assertEquals(r0c0.countConnections(), 2);
         assertEquals(r0c1.countConnections(), 2);
@@ -226,9 +228,11 @@ public class ConnectionTest {
         GUI.loadColorsFromJson("data/colors.json");
         Board board = new Board("boards/board2.json");
 
-        board.getLocation(0, 0).checkConnections(false);
-        board.getLocation(0, 6).checkConnections(false);
-        board.getLocation(6, 6).checkConnections(false);
+        board.updatesScheduled.clear(); // Clear the queue so we can test the propagation behavior
+        board.updatesScheduled.add(board.getLocation(0, 0));
+        board.updatesScheduled.add(board.getLocation(0, 6));
+        board.updatesScheduled.add(board.getLocation(6, 6));
+        board.updateAll();
 
         // In theory, this should be sufficient to prove the board is connected correctly
         for (int row = 0; row < board.getSize(); row++) {
@@ -242,7 +246,6 @@ public class ConnectionTest {
                 assertNotNull(loc.getColor());
             }
         }
-
     }
 }
 

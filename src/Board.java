@@ -1,6 +1,7 @@
 package src;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.util.PriorityQueue;
 
 import org.json.JSONObject;
 import org.json.JSONTokener;
@@ -9,6 +10,9 @@ import org.json.JSONTokener;
 public class Board {
     private final Location[][] grid;
     private final int size;
+
+    // Scheduled updates and whether each location has been edited
+    public final PriorityQueue<Location> updatesScheduled;
 
     /**
      * @param filename Path to the JSON file containing the board data
@@ -23,6 +27,7 @@ public class Board {
             e.printStackTrace();
             grid = null;
             size = 0;
+            updatesScheduled = null;
             // This is fatal; exit the program
             System.exit(1);
             return;
@@ -33,6 +38,10 @@ public class Board {
         int size = obj.getInt("size");
         this.size = size;
         this.grid = new Location[size][size];
+        this.updatesScheduled = new PriorityQueue<>(size * size, (a, b) -> {
+            // For now, just say that all locations are equal; the update order doesn't affect the correctness of the result
+            return 0;
+        });
 
         // Initialize the grid with blank locations
         // It's easiest to do it this way because of how we read the board file
@@ -60,9 +69,22 @@ public class Board {
         // Initialize everything else to be blank
         for (int i = 0; i < size; i++) {
             for (int j = 0; j < size; j++) {
-                if (grid[i][j] != null) continue; // Already did these
-                grid[i][j] = new Location(new Coordinate(i, j), this, null, false);
+                if (grid[i][j] != null) {
+                    // Already did this one
+                } else {
+                    grid[i][j] = new Location(new Coordinate(i, j), this, null, false);
+                }
+
+                // Schedule an update for this location
+                updatesScheduled.add(grid[i][j]);
             }
+        }
+    }
+
+    public void updateAll() {
+        Location loc;
+        while ((loc = updatesScheduled.poll()) != null) {
+            loc.checkConnections();
         }
     }
 
