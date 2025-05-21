@@ -3,6 +3,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.util.PriorityQueue;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONTokener;
 
@@ -55,11 +56,17 @@ public class Board {
         JSONObject flows = obj.getJSONObject("flows");
         for (String key : flows.keySet()) {
             // Fetch the data for a given color
-            JSONObject colorObj = flows.getJSONObject(key);
-            int startCol = colorObj.getInt("Sx");
-            int startRow = colorObj.getInt("Sy");
-            int endCol = colorObj.getInt("Ex");
-            int endRow = colorObj.getInt("Ey");
+            // A "color" consists of an array of four ints, representing the start and end coordinates
+            JSONArray colorObj = flows.getJSONArray(key);
+            int startCol = colorObj.getInt(0);
+            int startRow = colorObj.getInt(1);
+            int endCol = colorObj.getInt(2);
+            int endRow = colorObj.getInt(3);
+
+            if (!GUI.COLOR_MAP.containsKey(key)) {
+                System.err.println("Unknown color: " + key);
+                continue;
+            }
 
             // Create Location objects for the start and end points
             grid[startRow][startCol] = new Location(new Coordinate(startRow, startCol), this, GUI.COLOR_MAP.get(key), true);
