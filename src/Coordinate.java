@@ -86,4 +86,8 @@ public class Coordinate {
     public String toString() {
         return "(" + row + ", " + col + ")";
     }
+
+    public boolean isInBounds() {
+        return row >= 0 && col >= 0 && row < GUI.boardSize && col < GUI.boardSize;
+    }
 }

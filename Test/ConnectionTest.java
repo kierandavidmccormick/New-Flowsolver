@@ -22,13 +22,13 @@ public class ConnectionTest {
         Location topRight = board.getLocation(0, 1);
         Location bottomLeft = board.getLocation(1, 0);
 
-        topLeft.connectTo(Coordinate.RIGHT, topRight);
+        topLeft.connectTo(Coordinate.RIGHT, topRight, board);
         assertEquals(topLeft.countConnections(), 1);
         assertEquals(topRight.countConnections(), 1);
         assertTrue(topLeft.getConnections()[3]);
         assertTrue(topRight.getConnections()[2]);
 
-        bottomLeft.connectTo(Coordinate.UP, topLeft);
+        bottomLeft.connectTo(Coordinate.UP, topLeft, board);
         assertEquals(bottomLeft.countConnections(), 1);
         assertEquals(topLeft.countConnections(), 2);
         assertTrue(bottomLeft.getConnections()[0]);
@@ -46,11 +46,11 @@ public class ConnectionTest {
         topLeft.setColor(Color.RED);
         bottomRight.setColor(Color.GREEN);
 
-        topLeft.connectTo(Coordinate.RIGHT, topRight);
+        topLeft.connectTo(Coordinate.RIGHT, topRight, board);
         assertEquals(topLeft.getColor(), topRight.getColor());
         assertEquals(topRight.getColor(), Color.RED);
 
-        bottomLeft.connectTo(Coordinate.RIGHT, bottomRight);
+        bottomLeft.connectTo(Coordinate.RIGHT, bottomRight, board);
         assertEquals(bottomLeft.getColor(), bottomRight.getColor());
         assertEquals(bottomLeft.getColor(), Color.GREEN);
     }
@@ -64,8 +64,8 @@ public class ConnectionTest {
         Location bottomRight = board.getLocation(1, 1);
 
         bottomRight.setColor(Color.RED);
-        topLeft.connectTo(Coordinate.RIGHT, topRight);
-        topRight.connectTo(Coordinate.DOWN, bottomRight);
+        topLeft.connectTo(Coordinate.RIGHT, topRight, board);
+        topRight.connectTo(Coordinate.DOWN, bottomRight, board);
 
         assertEquals(topLeft.getColor(), Color.RED);
     }
@@ -79,8 +79,8 @@ public class ConnectionTest {
         Location bottomRight = board.getLocation(1, 1);
 
         bottomRight.setColor(Color.RED);
-        topLeft.connectTo(Coordinate.RIGHT, topRight);
-        bottomRight.connectTo(Coordinate.UP, topRight);
+        topLeft.connectTo(Coordinate.RIGHT, topRight, board);
+        bottomRight.connectTo(Coordinate.UP, topRight, board);
 
         assertEquals(topLeft.getColor(), Color.RED);
     }
@@ -101,47 +101,47 @@ public class ConnectionTest {
         // Location r2c2 = board.getLocation(2, 2);
 
         // Top left can connect to the right and down
-        assertFalse(r0c0.isBlockingConnection(Coordinate.DOWN));
-        assertFalse(r0c0.isBlockingConnection(Coordinate.RIGHT));
+        assertFalse(r0c0.isBlockingConnection(Coordinate.DOWN, board));
+        assertFalse(r0c0.isBlockingConnection(Coordinate.RIGHT, board));
 
         // Middle left can connect up and down
-        assertFalse(r1c0.isBlockingConnection(Coordinate.UP));
-        assertFalse(r1c0.isBlockingConnection(Coordinate.DOWN));
+        assertFalse(r1c0.isBlockingConnection(Coordinate.UP, board));
+        assertFalse(r1c0.isBlockingConnection(Coordinate.DOWN, board));
 
         // Bottom left can connect up
-        assertFalse(r2c0.isBlockingConnection(Coordinate.UP));
+        assertFalse(r2c0.isBlockingConnection(Coordinate.UP, board));
 
         // Center can connect up, down, left, and right
-        assertFalse(r1c1.isBlockingConnection(Coordinate.UP));
-        assertFalse(r1c1.isBlockingConnection(Coordinate.DOWN));
-        assertFalse(r1c1.isBlockingConnection(Coordinate.LEFT));
-        assertFalse(r1c1.isBlockingConnection(Coordinate.RIGHT));
+        assertFalse(r1c1.isBlockingConnection(Coordinate.UP, board));
+        assertFalse(r1c1.isBlockingConnection(Coordinate.DOWN, board));
+        assertFalse(r1c1.isBlockingConnection(Coordinate.LEFT, board));
+        assertFalse(r1c1.isBlockingConnection(Coordinate.RIGHT, board));
 
         // Can't connect if already connected
-        r0c0.connectTo(Coordinate.DOWN, r1c0);
-        assertTrue(r0c0.isBlockingConnection(Coordinate.DOWN));
-        assertTrue(r1c0.isBlockingConnection(Coordinate.UP));
+        r0c0.connectTo(Coordinate.DOWN, r1c0, board);
+        assertTrue(r0c0.isBlockingConnection(Coordinate.DOWN, board));
+        assertTrue(r1c0.isBlockingConnection(Coordinate.UP, board));
 
         // Should still be able to connect...
-        assertFalse(r1c1.isBlockingConnection(Coordinate.LEFT));
-        assertFalse(r1c0.isBlockingConnection(Coordinate.RIGHT));
+        assertFalse(r1c1.isBlockingConnection(Coordinate.LEFT, board));
+        assertFalse(r1c0.isBlockingConnection(Coordinate.RIGHT, board));
         // ... until it would make a u-turn
-        r0c0.connectTo(Coordinate.RIGHT, r0c1);
-        assertTrue(r1c1.isBlockingConnection(Coordinate.LEFT));
-        assertTrue(r1c0.isBlockingConnection(Coordinate.RIGHT));
-        assertTrue(r1c1.isBlockingConnection(Coordinate.UP));
-        assertTrue(r0c1.isBlockingConnection(Coordinate.DOWN));
-        
+        r0c0.connectTo(Coordinate.RIGHT, r0c1, board);
+        assertTrue(r1c1.isBlockingConnection(Coordinate.LEFT, board));
+        assertTrue(r1c0.isBlockingConnection(Coordinate.RIGHT, board));
+        assertTrue(r1c1.isBlockingConnection(Coordinate.UP, board));
+        assertTrue(r0c1.isBlockingConnection(Coordinate.DOWN, board));
+
         // Can't connect off the edge of the board
-        assertTrue(r0c2.isBlockingConnection(Coordinate.RIGHT));
-        assertTrue(r0c2.isBlockingConnection(Coordinate.UP));
+        assertTrue(r0c2.isBlockingConnection(Coordinate.RIGHT, board));
+        assertTrue(r0c2.isBlockingConnection(Coordinate.UP, board));
 
         // Can't connect if connections are already full
-        assertTrue(r1c1.isBlockingConnection(Coordinate.UP));
+        assertTrue(r1c1.isBlockingConnection(Coordinate.UP, board));
 
         // Can't connect different colors
-        assertTrue(r2c0.isBlockingConnection(Coordinate.RIGHT));
-        assertTrue(r2c1.isBlockingConnection(Coordinate.LEFT));
+        assertTrue(r2c0.isBlockingConnection(Coordinate.RIGHT, board));
+        assertTrue(r2c1.isBlockingConnection(Coordinate.LEFT, board));
 
     }
 
@@ -154,13 +154,13 @@ public class ConnectionTest {
         Location bottomLeft = board.getLocation(1, 0);
         Location bottomRight = board.getLocation(1, 1);
 
-        topLeft.connectTo(Coordinate.RIGHT, topRight);
-        bottomLeft.connectTo(Coordinate.RIGHT, bottomRight);
+        topLeft.connectTo(Coordinate.RIGHT, topRight, board);
+        bottomLeft.connectTo(Coordinate.RIGHT, bottomRight, board);
 
-        assertTrue(topLeft.isUTurn(Coordinate.DOWN, bottomLeft));
-        assertTrue(bottomLeft.isUTurn(Coordinate.UP, topLeft));
-        assertTrue(topRight.isUTurn(Coordinate.DOWN, bottomRight));
-        assertTrue(bottomRight.isUTurn(Coordinate.UP, topRight));
+        assertTrue(topLeft.isUTurn(Coordinate.DOWN, bottomLeft, board));
+        assertTrue(bottomLeft.isUTurn(Coordinate.UP, topLeft, board));
+        assertTrue(topRight.isUTurn(Coordinate.DOWN, bottomRight, board));
+        assertTrue(bottomRight.isUTurn(Coordinate.UP, topRight, board));
     }
 
     @Test
@@ -172,11 +172,11 @@ public class ConnectionTest {
         Location bottomLeft = board.getLocation(1, 0);
         Location bottomRight = board.getLocation(1, 1);
 
-        topLeft.connectTo(Coordinate.RIGHT, topRight);
-        topLeft.connectTo(Coordinate.DOWN, bottomLeft);
+        topLeft.connectTo(Coordinate.RIGHT, topRight, board);
+        topLeft.connectTo(Coordinate.DOWN, bottomLeft, board);
 
-        assertTrue(topRight.isUTurn(Coordinate.DOWN, bottomRight));
-        assertTrue(bottomLeft.isUTurn(Coordinate.RIGHT, bottomRight));
+        assertTrue(topRight.isUTurn(Coordinate.DOWN, bottomRight, board));
+        assertTrue(bottomLeft.isUTurn(Coordinate.RIGHT, bottomRight, board));
     }
 
     // This is an end-to-end test rather than a unit test because this behavior is still fluid
@@ -235,8 +235,8 @@ public class ConnectionTest {
         board.updateAll();
 
         // In theory, this should be sufficient to prove the board is connected correctly
-        for (int row = 0; row < board.getSize(); row++) {
-            for (int col = 0; col < board.getSize(); col++) {
+        for (int row = 0; row < GUI.boardSize; row++) {
+            for (int col = 0; col < GUI.boardSize; col++) {
                 Location loc = board.getLocation(row, col);
                 if (loc.isStart()) {
                     assertEquals(loc.countConnections(), 1);

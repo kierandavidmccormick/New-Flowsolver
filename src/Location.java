@@ -7,20 +7,17 @@ public class Location {
 
     private final Coordinate coordinate;
     private final Boolean[] connections = new Boolean[4];   // Up, Down, Left, Right
-    private final Board board;
     private Color color;
     private final boolean isStart;
     private boolean edited = false; // Whether this location has been edited since the last check;
 
     /**
      * @param c Coordinate of this location
-     * @param board Board this location belongs to
      * @param color Color of this location; null if color unresolved
      * @param isStart Whether this is a starting location
      */
-    public Location(Coordinate c, Board board, Color color, boolean isStart) {
+    public Location(Coordinate c, Color color, boolean isStart) {
         this.coordinate = c;
-        this.board = board;
         this.color = color;
         this.isStart = isStart;
         for (int i = 0; i < connections.length; i++) {
@@ -31,7 +28,7 @@ public class Location {
     // Updates self and other connections as necessary
     // Handles color updates, but not connection updates; those belong to the calling function
     // Assumes that location is valid to connect to
-    public void connectTo(Coordinate direction, Location other) {
+    public void connectTo(Coordinate direction, Location other, Board board) {
 
         int index = Coordinate.toIndex(direction);
         if (index == -1) {
@@ -43,58 +40,59 @@ public class Location {
         other.connections[Coordinate.getOppositeIndex(index)] = true;
         other.edited = true;
         if (color != other.getColor()) {
-            other.updateColor();
+            other.updateColor(board);
         }
     }
 
     // Updates the color of this location and all connected uncolored locations
-    public void updateColor() {
+    public void updateColor(Board board) {
 
         for (int i = 0; i < connections.length; i++) {
-            if (connections[i]) {
+            if (!connections[i]) {
+                continue; 
+            }
 
-                Coordinate direction = Coordinate.DIRECTIONS[i];
-                Location other = board.getLocation(coordinate.add(direction));
+            Coordinate direction = Coordinate.DIRECTIONS[i];
+            Location other = board.getLocation(coordinate.add(direction));
+            
+            if (color == null && other.getColor() != null) {
+                // Check again in case we already checked a direction with no color
+                setColor(other.getColor());
+                updateColor(board); 
                 
-                if (color == null && other.getColor() != null) {
-                    // Check again in case we already checked a direction with no color
-                    setColor(other.getColor());
-                    updateColor(); 
-                    
-                    // There's an edge case where this forces a new connection
-                    if (getMaxConnections() - countConnections() > 0) {
-                        edited = true;
-                        registerUpdate();
-                    }
-                } else if (color != null && other.getColor() == null) {
-                    // Propagate the color updates through the neighbor
-                    other.setColor(color);
-                    other.updateColor(); 
-                    
-                    if (other.getMaxConnections() - other.countConnections() > 0) {
-                        other.edited = true;
-                        other.registerUpdate();
-                    }
-                } else if (color != null && other.getColor() != null && !color.equals(other.getColor())) {
-                    // This shouldn't ever happen
-                    System.err.println("Color conflict between " + this + " and " + other);
+                // There's an edge case where this forces a new connection
+                if (getMaxConnections() - countConnections() > 0) {
+                    edited = true;
+                    registerUpdate(board);
                 }
+            } else if (color != null && other.getColor() == null) {
+                // Propagate the color updates through the neighbor
+                other.setColor(color);
+                other.updateColor(board); 
+                
+                if (other.getMaxConnections() - other.countConnections() > 0) {
+                    other.edited = true;
+                    other.registerUpdate(board);
+                }
+            } else if (color != null && other.getColor() != null && !color.equals(other.getColor())) {
+                // This shouldn't ever happen
+                System.err.println("Color conflict between " + this + " and " + other);
             }
         }
     }
 
     // Makes any connections that can be guaranteed to be valid
-    public void checkConnections() {
+    public void checkConnections(Board board) {
 
         // List of directions that cannot be connected to
         ArrayList<Coordinate> blockedDirections = new ArrayList<>();
         for (Coordinate dir : Coordinate.DIRECTIONS) {
-            if (isBlockingConnection(dir)) {
+            if (isBlockingConnection(dir, board)) {
                 blockedDirections.add(dir);
             }
         }
 
-        ArrayList<Coordinate> directionsEdited = new ArrayList<>();
+        boolean editedOther = false;
 
         if (countConnections() >= getMaxConnections()) {
             // Already have the maximum number of allowed connections
@@ -106,8 +104,8 @@ public class Location {
                 if (!blockedDirections.contains(dir)) {
                     // Connect to this direction
                     Location other = board.getLocation(coordinate.add(dir));
-                    connectTo(dir, other);
-                    directionsEdited.add(dir);
+                    connectTo(dir, other, board);
+                    editedOther = true;
                 }
             }
         } else {
@@ -118,12 +116,12 @@ public class Location {
         }
 
         // Propagate connection checks to neighbors if this location changed its connections
-        if (directionsEdited.size() > 0 || edited) {
+        if (edited || editedOther) {
             // We have to check all connections; there are more possibilities than with colors
             for (Coordinate dir : Coordinate.DIRECTIONS) {
                 Coordinate newCoordinate = coordinate.add(dir);
-                if (board.isInBounds(newCoordinate)) {
-                    board.getLocation(newCoordinate).registerUpdate();
+                if (newCoordinate.isInBounds()) {
+                    board.getLocation(newCoordinate).registerUpdate(board);
                 }
             }
         }
@@ -133,7 +131,7 @@ public class Location {
 
     // Determines whether it's valid to make a connection in the given direction
     // This has a bunch of finicky cases that really need 100% test coverage
-    public boolean isBlockingConnection(Coordinate direction) {
+    public boolean isBlockingConnection(Coordinate direction, Board board) {
 
         if (connections[Coordinate.toIndex(direction)]) {
             // Blocked because already connected
@@ -141,7 +139,7 @@ public class Location {
         }
 
         Coordinate newCoordinate = coordinate.add(direction);
-        if (!board.isInBounds(newCoordinate)) {
+        if (!newCoordinate.isInBounds()) {
             // Blocked because out of bounds
             return true;
         }
@@ -157,7 +155,7 @@ public class Location {
             return true;
         }
      
-        if (isUTurn(direction, other)) {
+        if (isUTurn(direction, other, board)) {
             // Blocked because this would make a U-turn
             return true;
         }
@@ -167,7 +165,7 @@ public class Location {
 
     // Checks a special and particularly complicated case that's forbidden, when a given path bends back on itself
     // Assumes location is correct and in bounds
-    public boolean isUTurn(Coordinate direction, Location other) {
+    public boolean isUTurn(Coordinate direction, Location other, Board board) {
         Coordinate leftOffset = Coordinate.leftTurn(direction);
         Coordinate rightOffset = Coordinate.rightTurn(direction);
         int dirIndex = Coordinate.toIndex(direction);
@@ -175,8 +173,8 @@ public class Location {
         int rightIndex = Coordinate.toIndex(rightOffset);
 
         // Check if this makes a U-turn to the left
-        if (board.isInBounds(coordinate.add(leftOffset)) && board.isInBounds(other.getCoordinate().add(leftOffset))) {
-            
+        if (coordinate.add(leftOffset).isInBounds() && other.getCoordinate().add(leftOffset).isInBounds()) {
+
             Location leftNeighbor = board.getLocation(coordinate.add(leftOffset));
 
             if (connections[leftIndex] && (leftNeighbor.getConnections()[dirIndex] || other.getConnections()[leftIndex])) {
@@ -187,7 +185,7 @@ public class Location {
         }
 
         // Check if this makes a U-turn to the right
-        if (board.isInBounds(coordinate.add(rightOffset)) && board.isInBounds(other.getCoordinate().add(rightOffset))) {
+        if (coordinate.add(rightOffset).isInBounds() && other.getCoordinate().add(rightOffset).isInBounds()) {
 
             Location rightNeighbor = board.getLocation(coordinate.add(rightOffset));
 
@@ -204,10 +202,6 @@ public class Location {
 
     public Coordinate getCoordinate() {
         return coordinate;
-    }
-
-    public Board getBoard() {
-        return board;
     }
 
     public Color getColor() {
@@ -246,7 +240,7 @@ public class Location {
         }
     }
 
-    private void registerUpdate() {
+    private void registerUpdate(Board board) {
         if (!board.updatesScheduled.contains(this)) {
             board.updatesScheduled.add(this);
         }

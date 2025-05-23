@@ -21,6 +21,9 @@ public class GUI {
     private static final int FRAME_HEIGHT = 1000;
     private static final int OUTER_BORDER_SIZE = 20; // Size of the border around the grid
 
+    // Set this here for now before we separate out the graphics and solver logic
+    public static int boardSize = 0; // Size of the board
+
     // Map of color names to Color objects (ordered)
     public static final Map<String, Color> COLOR_MAP = new LinkedHashMap<>();
 
@@ -44,7 +47,7 @@ public class GUI {
         // Populate the list of colors
         loadColorsFromJson("data/colors.json");
 
-        Board board = new Board("boards/board2.json");
+        Board board = new Board("boards/board3.json");
         board.updateAll();
 
         SwingUtilities.invokeLater(() -> {
@@ -53,10 +56,10 @@ public class GUI {
             frame.setSize(FRAME_WIDTH, FRAME_HEIGHT);
             frame.setLocationRelativeTo(null); // center on screen
 
-            JPanel gridPanel = new JPanel(new GridLayout(board.getSize(), board.getSize(), 5, 5));
+            JPanel gridPanel = new JPanel(new GridLayout(boardSize, boardSize, 5, 5));
             gridPanel.setBackground(Color.WHITE);
 
-            for (int i = 0; i < board.getSize() * board.getSize(); i++) {
+            for (int i = 0; i < boardSize * boardSize; i++) {
                 final int idx = i;
 
                 JPanel square = new JPanel() {
@@ -64,8 +67,8 @@ public class GUI {
                     protected void paintComponent(Graphics g) {
                         super.paintComponent(g);
 
-                        int col = idx % board.getSize();
-                        int row = idx / board.getSize();
+                        int col = idx % boardSize;
+                        int row = idx / boardSize;
 
                         // Work out the color of the circle
                         Color circleColor = Color.GRAY;

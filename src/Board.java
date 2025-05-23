@@ -10,7 +10,6 @@ import org.json.JSONTokener;
 /* Container class for a game of numberlink */
 public class Board {
     private final Location[][] grid;
-    private final int size;
 
     // Scheduled updates and whether each location has been edited
     public final PriorityQueue<Location> updatesScheduled;
@@ -27,7 +26,6 @@ public class Board {
         } catch (FileNotFoundException e) {
             e.printStackTrace();
             grid = null;
-            size = 0;
             updatesScheduled = null;
             // This is fatal; exit the program
             System.exit(1);
@@ -37,12 +35,15 @@ public class Board {
         JSONObject obj = new JSONObject(new JSONTokener(reader));
         
         int size = obj.getInt("size");
-        this.size = size;
         this.grid = new Location[size][size];
         this.updatesScheduled = new PriorityQueue<>(size * size, (a, b) -> {
             // For now, just say that all locations are equal; the update order doesn't affect the correctness of the result
             return 0;
         });
+
+        // This is improper, but very temporary
+        // TODO fixme when the Solver class exists
+        GUI.boardSize = size;
 
         // Initialize the grid with blank locations
         // It's easiest to do it this way because of how we read the board file
@@ -69,8 +70,8 @@ public class Board {
             }
 
             // Create Location objects for the start and end points
-            grid[startRow][startCol] = new Location(new Coordinate(startRow, startCol), this, GUI.COLOR_MAP.get(key), true);
-            grid[endRow][endCol] = new Location(new Coordinate(endRow, endCol), this, GUI.COLOR_MAP.get(key), true);
+            grid[startRow][startCol] = new Location(new Coordinate(startRow, startCol), GUI.COLOR_MAP.get(key), true);
+            grid[endRow][endCol] = new Location(new Coordinate(endRow, endCol), GUI.COLOR_MAP.get(key), true);
         }
 
         // Initialize everything else to be blank
@@ -79,7 +80,7 @@ public class Board {
                 if (grid[i][j] != null) {
                     // Already did this one
                 } else {
-                    grid[i][j] = new Location(new Coordinate(i, j), this, null, false);
+                    grid[i][j] = new Location(new Coordinate(i, j), null, false);
                 }
 
                 // Schedule an update for this location
@@ -91,7 +92,7 @@ public class Board {
     public void updateAll() {
         Location loc;
         while ((loc = updatesScheduled.poll()) != null) {
-            loc.checkConnections();
+            loc.checkConnections(this);
         }
     }
 
@@ -101,18 +102,6 @@ public class Board {
 
     public Location getLocation(Coordinate coordinate) {
         return grid[coordinate.getRow()][coordinate.getCol()];
-    }
-
-    public boolean isInBounds(int row, int col) {
-        return row >= 0 && row < size && col >= 0 && col < size;
-    }
-
-    public boolean isInBounds(Coordinate coordinate) {
-        return isInBounds(coordinate.getRow(), coordinate.getCol());
-    }
-
-    public int getSize() {
-        return size;
     }
 
     public Location[][] getGrid() {
