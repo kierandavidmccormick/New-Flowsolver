@@ -9,7 +9,7 @@ import java.awt.BorderLayout;
 import java.awt.Graphics;
 import java.awt.Dimension;
 import java.util.Map;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.io.FileReader;
 import java.io.IOException;
 import org.json.JSONObject;
@@ -21,21 +21,27 @@ public class GUI {
     private static final int FRAME_HEIGHT = 1000;
     private static final int OUTER_BORDER_SIZE = 20; // Size of the border around the grid
 
-    // Set this here for now before we separate out the graphics and solver logic
-    public static int boardSize = 0; // Size of the board
+    // Map of color indexes to Color objects
+    public static final Map<Integer, Color> COLOR_INDEX_MAP = new HashMap<>();
+    // Map of color indexes to color names
+    public static final Map<String, Color> COLOR_NAME_MAP = new HashMap<>();
+    // Map of color names to indexes
+    public static final Map<String, Integer> COLOR_REVERSE_INDEX_MAP = new HashMap<>();
 
-    // Map of color names to Color objects (ordered)
-    public static final Map<String, Color> COLOR_MAP = new LinkedHashMap<>();
-
-    // Reads colors from colors.json and populates COLOR_MAP
+    // Reads colors from colors.json and populates COLOR_INDEX_MAP and COLOR_NAME_MAP
     public static void loadColorsFromJson(String filename) {
         try (FileReader reader = new FileReader(filename)) {
             JSONObject obj = new JSONObject(new JSONTokener(reader));
+
+            int i = 0;
             for (String name : obj.keySet()) {
                 // Get the RGB array
                 org.json.JSONArray arr = obj.getJSONArray(name);
                 Color color = new Color(arr.getInt(0), arr.getInt(1), arr.getInt(2));
-                COLOR_MAP.put(name, color);
+                COLOR_INDEX_MAP.put(i, color);
+                COLOR_REVERSE_INDEX_MAP.put(name, i);
+                COLOR_NAME_MAP.put(name, color);
+                i++;
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -47,8 +53,21 @@ public class GUI {
         // Populate the list of colors
         loadColorsFromJson("data/colors.json");
 
-        Board board = new Board("boards/board3.json");
-        board.updateAll();
+        Board startBoard = Solver.getRootBoard("boards/board3.json");
+        try {
+            startBoard.updateAll();
+        } catch (InvalidMoveException e) {
+            // Shouldn't happen unless the board is invalid
+            System.err.println("Invalid move: " + e.getMessage());
+        }
+
+        System.out.println("Starting board:" + startBoard.simpleReadout());
+
+        final Board board = Solver.solveBoard(startBoard, 0);
+        if (board == null) {
+            System.err.println("No solution found");
+            return;
+        }
 
         SwingUtilities.invokeLater(() -> {
             JFrame frame = new JFrame("Grid");
@@ -56,10 +75,10 @@ public class GUI {
             frame.setSize(FRAME_WIDTH, FRAME_HEIGHT);
             frame.setLocationRelativeTo(null); // center on screen
 
-            JPanel gridPanel = new JPanel(new GridLayout(boardSize, boardSize, 5, 5));
+            JPanel gridPanel = new JPanel(new GridLayout(Solver.BOARD_SIZE, Solver.BOARD_SIZE, 5, 5));
             gridPanel.setBackground(Color.WHITE);
 
-            for (int i = 0; i < boardSize * boardSize; i++) {
+            for (int i = 0; i < Solver.BOARD_SIZE * Solver.BOARD_SIZE; i++) {
                 final int idx = i;
 
                 JPanel square = new JPanel() {
@@ -67,13 +86,13 @@ public class GUI {
                     protected void paintComponent(Graphics g) {
                         super.paintComponent(g);
 
-                        int col = idx % boardSize;
-                        int row = idx / boardSize;
+                        int col = idx % Solver.BOARD_SIZE;
+                        int row = idx / Solver.BOARD_SIZE;
 
                         // Work out the color of the circle
                         Color circleColor = Color.GRAY;
-                        if (board.getLocation(row, col).getColor() != null) {
-                            circleColor = board.getLocation(row, col).getColor();
+                        if (board.getLocation(row, col).getColorIndex() != null) {
+                            circleColor = GUI.COLOR_INDEX_MAP.get(board.getLocation(row, col).getColorIndex());
                         }
 
                         // Draw the circle

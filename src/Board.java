@@ -1,15 +1,14 @@
 package src;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
+import java.util.ArrayList;
 import java.util.PriorityQueue;
-
-import org.json.JSONArray;
-import org.json.JSONObject;
-import org.json.JSONTokener;
 
 /* Container class for a game of numberlink */
 public class Board {
     private final Location[][] grid;
+    private final PriorityQueue<Move> moves = new PriorityQueue<>((a, b) -> {
+        // Higher score goes first
+        return Integer.compare(b.getScore(), a.getScore());
+    });
 
     // Scheduled updates and whether each location has been edited
     public final PriorityQueue<Location> updatesScheduled;
@@ -17,83 +16,74 @@ public class Board {
     /**
      * @param filename Path to the JSON file containing the board data
      */
-    public Board(String filename) {
+    public Board(Location[][] grid) {
+        this.grid = grid;
 
-        // Pull the board data from the specified file
-        FileReader reader;
-        try {
-            reader = new FileReader(filename);
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-            grid = null;
-            updatesScheduled = null;
-            // This is fatal; exit the program
-            System.exit(1);
-            return;
-            // This return is unreachable, but it's here to satisfy the compiler
-        }
-        JSONObject obj = new JSONObject(new JSONTokener(reader));
-        
-        int size = obj.getInt("size");
-        this.grid = new Location[size][size];
-        this.updatesScheduled = new PriorityQueue<>(size * size, (a, b) -> {
+        // TODO don't keep this around longterm
+        this.updatesScheduled = new PriorityQueue<>(Solver.BOARD_SIZE * Solver.BOARD_SIZE, (a, b) -> {
             // For now, just say that all locations are equal; the update order doesn't affect the correctness of the result
             return 0;
         });
+    }
 
-        // This is improper, but very temporary
-        // TODO fixme when the Solver class exists
-        GUI.boardSize = size;
+    // Copy constructor
+    public Board(Board other) {
+        this(new Location[other.grid.length][other.grid[0].length]);
 
-        // Initialize the grid with blank locations
-        // It's easiest to do it this way because of how we read the board file
-        for (int i = 0; i < size; i++) {
-            for (int j = 0; j < size; j++) {
-                grid[i][j] = null;
-            }
-        }
-
-        // Populate the grid with Location objects for each of the starting positions
-        JSONObject flows = obj.getJSONObject("flows");
-        for (String key : flows.keySet()) {
-            // Fetch the data for a given color
-            // A "color" consists of an array of four ints, representing the start and end coordinates
-            JSONArray colorObj = flows.getJSONArray(key);
-            int startCol = colorObj.getInt(0);
-            int startRow = colorObj.getInt(1);
-            int endCol = colorObj.getInt(2);
-            int endRow = colorObj.getInt(3);
-
-            if (!GUI.COLOR_MAP.containsKey(key)) {
-                System.err.println("Unknown color: " + key);
-                continue;
-            }
-
-            // Create Location objects for the start and end points
-            grid[startRow][startCol] = new Location(new Coordinate(startRow, startCol), GUI.COLOR_MAP.get(key), true);
-            grid[endRow][endCol] = new Location(new Coordinate(endRow, endCol), GUI.COLOR_MAP.get(key), true);
-        }
-
-        // Initialize everything else to be blank
-        for (int i = 0; i < size; i++) {
-            for (int j = 0; j < size; j++) {
-                if (grid[i][j] != null) {
-                    // Already did this one
-                } else {
-                    grid[i][j] = new Location(new Coordinate(i, j), null, false);
-                }
-
-                // Schedule an update for this location
-                updatesScheduled.add(grid[i][j]);
+        for (int i = 0; i < grid.length; i++) {
+            for (int j = 0; j < grid[i].length; j++) {
+                this.grid[i][j] = new Location(other.grid[i][j]);
             }
         }
     }
 
-    public void updateAll() {
+    public ArrayList<Move> getMoves() {
+        ArrayList<Move> moves = new ArrayList<>();
+
+        for (int i = 0; i < Solver.BOARD_SIZE; i++) {
+            for (int j = 0; j < Solver.BOARD_SIZE; j++) {
+                Location loc = grid[i][j];
+                if (loc.getRemainingConnections() <= 0) {
+                    continue;
+                }
+
+                for (Coordinate direction : Coordinate.DIRECTIONS) {
+                    if (loc.isBlockingConnection(direction, this)) {
+                        continue;
+                    }
+
+                    Move move = new Move(loc.getCoordinate(), direction, this);
+                    moves.add(move);
+                }
+            }
+        }
+
+        return moves;
+    }
+
+    public void applyMove(Move move) throws InvalidMoveException {
+        Location start = getLocation(move.getStart());
+        Coordinate direction = move.getDirection();
+        Location other = getLocation(move.getStart().add(direction));
+
+        start.connectTo(direction, other, this);
+        start.setEdited(true);      // Necessary because it hasn't been through checkConnections yet
+        updatesScheduled.add(start);
+        updatesScheduled.add(other);
+        updateAll();
+    }
+
+    public void updateMoves() {
+        moves.clear();
+        moves.addAll(getMoves());
+    }
+
+    public void updateAll() throws InvalidMoveException {
         Location loc;
         while ((loc = updatesScheduled.poll()) != null) {
             loc.checkConnections(this);
         }
+        updateMoves();
     }
 
     public Location getLocation(int row, int col) {
@@ -106,5 +96,66 @@ public class Board {
 
     public Location[][] getGrid() {
         return grid;
+    }
+
+    public PriorityQueue<Move> getMovesQueue() {
+        return moves;
+    }
+
+    public boolean isSolved() {
+        for (Location[] row : grid) {
+            for (Location loc : row) {
+                if (loc.getRemainingConnections() != 0 || loc.getColorIndex() == null) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    // Returns an ascii-art representation of the board for debug purposes
+    public String simpleReadout() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("\n   ");
+        for (int i = 0; i < Solver.BOARD_SIZE; i++) {
+            sb.append(i + " ");
+        }
+        sb.append("\n\n");
+        for (Location[] row : grid) {
+            boolean[] vertConnections = new boolean[Solver.BOARD_SIZE];
+            sb.append(row[0].getCoordinate().getRow() + "| ");
+            for (Location loc : row) {
+                if (loc.getColorIndex() == null) {
+                    sb.append(".");
+                } else {
+                    // print as hex
+                    sb.append(String.format("%01X", loc.getColorIndex()));
+                }
+
+                if (loc.getConnections()[3]) {
+                    sb.append("-");
+                } else {
+                    sb.append(" ");
+                }
+
+                if (loc.getConnections()[1]) {
+                    vertConnections[loc.getCoordinate().getCol()] = true;
+                } else {
+                    vertConnections[loc.getCoordinate().getCol()] = false;
+                }
+            }
+            sb.append("|" + row[0].getCoordinate().getRow());
+            sb.append("\n   ");
+            for (boolean connected : vertConnections) {
+                sb.append(connected ? "| " : "  ");
+            }
+            sb.append("\n");
+        }
+        sb.append("   ");
+        for (int i = 0; i < Solver.BOARD_SIZE; i++) {
+            sb.append(i + " ");
+        }
+        sb.append("\n");
+        return sb.toString();
     }
 }

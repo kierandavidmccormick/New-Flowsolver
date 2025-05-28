@@ -84,10 +84,14 @@ public class Coordinate {
 
     @Override
     public String toString() {
+        if (this == UP) return "UP";
+        if (this == DOWN) return "DOWN";
+        if (this == LEFT) return "LEFT";
+        if (this == RIGHT) return "RIGHT";
         return "(" + row + ", " + col + ")";
     }
 
     public boolean isInBounds() {
-        return row >= 0 && col >= 0 && row < GUI.boardSize && col < GUI.boardSize;
+        return row >= 0 && col >= 0 && row < Solver.BOARD_SIZE && col < Solver.BOARD_SIZE;
     }
 }
