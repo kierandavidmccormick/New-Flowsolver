@@ -11,7 +11,7 @@ public class Board {
     });
 
     // Scheduled updates and whether each location has been edited
-    public final PriorityQueue<Location> updatesScheduled;
+    public PriorityQueue<Location> updatesScheduled;
 
     /**
      * @param filename Path to the JSON file containing the board data
@@ -19,7 +19,6 @@ public class Board {
     public Board(Location[][] grid) {
         this.grid = grid;
 
-        // TODO don't keep this around longterm
         this.updatesScheduled = new PriorityQueue<>(Solver.BOARD_SIZE * Solver.BOARD_SIZE, (a, b) -> {
             // For now, just say that all locations are equal; the update order doesn't affect the correctness of the result
             return 0;
@@ -61,6 +60,19 @@ public class Board {
         return moves;
     }
 
+    public ArrayList<Location> getOpenLocations() {
+        // Returns a list of locations that have at least one open connection
+        ArrayList<Location> openLocations = new ArrayList<>();
+        for (Location[] row : grid) {
+            for (Location loc : row) {
+                if (loc.getRemainingConnections() > 0) {
+                    openLocations.add(loc);
+                }
+            }
+        }
+        return openLocations;
+    }
+
     public void applyMove(Move move) throws InvalidMoveException {
         Location start = getLocation(move.getStart());
         Coordinate direction = move.getDirection();
@@ -83,7 +95,9 @@ public class Board {
         while ((loc = updatesScheduled.poll()) != null) {
             loc.checkConnections(this);
         }
-        updateMoves();
+
+        // We won't need it, so we delete this for memory efficiency
+        updatesScheduled = null;
     }
 
     public Location getLocation(int row, int col) {

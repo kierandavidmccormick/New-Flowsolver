@@ -101,7 +101,6 @@ public class Location {
                 blockedDirections.add(dir);
             }
         }
-        // TODO keep an "unblocked directions" list as well; use that
 
         boolean editedOther = false;
 
@@ -136,6 +135,40 @@ public class Location {
         }
 
         edited = false; // Reset the edited flag
+    }
+
+    // Number of possible connection configurations for this location
+    // Guaranteed to be more than getRemainingConnections() by the move forcing logic
+    // Seems like a reasonable heuristic for the best location to explore first
+    public int countMoveCombinations(Board board) {
+        int validDirs = 0;
+        int remainingConnections = getRemainingConnections();
+        for (Coordinate dir : Coordinate.DIRECTIONS) {
+            if (!isBlockingConnection(dir, board)) {
+                validDirs++;
+            }
+        }
+        
+        if (remainingConnections == 1) {
+            return validDirs;
+        } else if (remainingConnections == 2) {
+            // Combinations of 2 from validDirs
+            return validDirs * (validDirs - 1) / 2;
+        } else {
+            // Something has gone wrong
+            System.err.println("Unexpected number of remaining connections");
+            return 99999;
+        }
+    }
+
+    public ArrayList<Move> getValidMoves(Board board) {
+        ArrayList<Move> validMoves = new ArrayList<>(4);
+        for (Coordinate dir : Coordinate.DIRECTIONS) {
+            if (!isBlockingConnection(dir, board)) {
+                validMoves.add(new Move(coordinate, dir, board));
+            }
+        }
+        return validMoves;
     }
 
     // Determines whether it's valid to make a connection in the given direction

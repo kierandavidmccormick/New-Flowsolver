@@ -2,6 +2,9 @@ package src;
 
 import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -87,38 +90,183 @@ public class Solver {
 
     // Recursive DFS
     // Very dumb; only really works for easy problems
-    public static Board solveBoard(Board board, int depth) {
-        if (depth > BOARD_SIZE * BOARD_SIZE) {
-            System.err.println("Too deep; giving up");
-            // In theory, this shouldn't happen, but this is still useful just in case
-            return null;
-        }
+    // public static Board solveBoard(Board board, int depth) {
+    //     if (depth > BOARD_SIZE * BOARD_SIZE) {
+    //         System.err.println("Too deep; giving up");
+    //         // In theory, this shouldn't happen, but this is still useful just in case
+    //         return null;
+    //     }
 
-        while (!board.getMovesQueue().isEmpty()) {
-            Board newBoard = new Board(board);
-            Move move = board.getMovesQueue().poll();
+    //     while (!board.getMovesQueue().isEmpty()) {
+    //         Board newBoard = new Board(board);
+    //         Move move = board.getMovesQueue().poll();
+    //         try {
+    //             newBoard.applyMove(move);
+    //             newBoard.updateMoves();
+    //         } catch (InvalidMoveException e) {
+    //             // Invalid move; skip this one
+    //             continue;
+    //         }
+
+    //         boardsCreated++;
+
+    //         if (newBoard.isSolved()) {
+    //             return newBoard;
+    //         }
+
+    //         Board deeperChild = solveBoard(newBoard, depth + 1);
+    //         if (deeperChild != null) {
+    //             return deeperChild;
+    //         }
+    //     }
+    //     return null;
+    // }
+
+    public static Board solveBoardBetter(Board board) {
+        while (true) {
+            // Iterative Deepening Search (IDS) with a depth limit of 4
+            Move forcedMove = null;
+            for (int depthLimit = 1; depthLimit <= 4; depthLimit++) {
+                // Try to find a forced move
+                forcedMove = findForcedMove(board, depthLimit);
+                if (forcedMove != null) {
+                    break;
+                }
+            }
+            if (forcedMove == null) {
+                // No forced move found; return the current board
+                return board;
+            }
+
             try {
-                newBoard.applyMove(move);
+                board.applyMove(forcedMove);
             } catch (InvalidMoveException e) {
-                // Invalid move; skip this one
-                continue;
-            }
-
-            boardsCreated++;
-            // System.out.println("Created board " + boardsCreated + " depth " + depth + ": " + newBoard.simpleReadout());
-
-            if (newBoard.isSolved()) {
-                // System.out.println("Final move: " + move.toString());
-                return newBoard;
-            }
-
-            Board deeperChild = solveBoard(newBoard, depth + 1);
-            if (deeperChild != null) {
-                // System.out.println("Move: " + move.toString());
-                return deeperChild;
+                // This shouldn't happen, but if it does, just return the current board
+                System.err.println("Invalid move: " + e.getMessage());
+                return board;
             }
         }
+    }
+
+    public static Move findForcedMove(Board board, int depthLimit) {
+
+        ArrayList<Location> openLocations = board.getOpenLocations();
+        HashMap<Location, ArrayList<Move>> candidates = new HashMap<>();
+        for (Location loc : openLocations) {
+            ArrayList<Move> moves = loc.getValidMoves(board);
+            if (moves.size() == 1) {
+                // Only one move available; this is a forced move
+                // Unlikely, but possible; usually the local move forcing rules preempt this, but it's possible I've missed an edge case somewhere
+                return moves.get(0);
+            } else if (moves.size() == 0) {
+                // Something has gone wrong; this location should not be open if there are no valid moves
+                System.err.println("No valid moves for location " + loc.getCoordinate());
+                return null;
+            }
+
+            candidates.put(loc, moves);
+        }
+
+        sortLocationsByConnections(openLocations, board);
+
+        // Check all candidates and see if any of them trigger an InvalidMoveException; if so, remove it as a candidate
+        for (Location loc : openLocations) {
+            ArrayList<Move> moves = new ArrayList<>(candidates.get(loc));      // Make a copy to avoid concurrent modification issues
+            for (Move move : moves) {
+                Board testBoard = new Board(board);
+                try {
+                    testBoard.applyMove(move);
+                } catch (InvalidMoveException e) {
+                    // This move is invalid; remove it from the candidates
+                    candidates.get(loc).remove(move);
+                    continue;
+                }
+
+                if (isDeadly(testBoard, depthLimit)) {
+                    // This move leads to a deadly board; remove it from the candidates
+                    candidates.get(loc).remove(move);
+                }
+            }
+
+            if (candidates.get(loc).size() == 1) {
+                // If there's only one move left, return it
+                return candidates.get(loc).get(0);
+            } else if (candidates.get(loc).size() == 0) {
+                // If there are no moves left, we shouldn't be here
+                System.err.println("Location " + loc.getCoordinate() + " has no valid moves");
+                return null;
+            }
+        }
+
         return null;
     }
 
+    // A board is deadly if there are no valid moves from an open location, or if all valid moves from an open location lead to a deadly board
+    public static boolean isDeadly(Board board, int depthLimit) {
+        if (depthLimit == 0) {
+            // Too deep; give up
+            return false;
+        }
+
+        // Get all open locations on the board and sort to put the most promising ones first
+        ArrayList<Location> openLocations = board.getOpenLocations();
+        sortLocationsByConnections(openLocations, board);
+
+        // Get the moves for each location
+        HashMap<Location, ArrayList<Move>> validMoves = new HashMap<>();
+        for (Location loc : openLocations) {
+            validMoves.put(loc, loc.getValidMoves(board));
+        }
+        
+        // Check all open locations for forced moves
+        for (Location loc : openLocations) {
+            ArrayList<Move> moves = validMoves.get(loc);
+            if (moves == null || moves.size() == 0) {
+                return true; // No valid moves from this location, so this move is deadly
+            }
+
+            boolean deadly = true;
+            // Check to see if there is at least one valid, non-deadly move
+            for (Move move : moves) {
+                Board newBoard = new Board(board);
+                try {
+                    newBoard.applyMove(move);
+                } catch (InvalidMoveException e) {
+                    // Invalid move; skip this one
+                    continue;
+                }
+
+                if (!isDeadly(newBoard, depthLimit - 1)) {
+                    deadly = false;
+                }
+            }
+            if (deadly) {
+                // All moves from this location lead to a deadly board
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // It's important for performance to pick good locations first
+    // I make this a total ordering so the search is deterministic
+    public static void sortLocationsByConnections(List<Location> locations, Board board) {
+        locations.sort((a, b) -> {
+            // Sort by the number of move combinations available at each location
+            int aCount = a.countMoveCombinations(board);
+            int bCount = b.countMoveCombinations(board);
+
+            // If the counts are not equal, sort by that
+            if (aCount != bCount) {
+                return Integer.compare(aCount, bCount);
+            }
+
+            // If the counts are equal, sort by the xcoordinate, then by the ycoordinate
+            if (a.getCoordinate().getRow() != b.getCoordinate().getRow()) {
+                return Integer.compare(a.getCoordinate().getRow(), b.getCoordinate().getRow());
+            } else {
+                return Integer.compare(a.getCoordinate().getCol(), b.getCoordinate().getCol());
+            }
+        });
+    }
 }

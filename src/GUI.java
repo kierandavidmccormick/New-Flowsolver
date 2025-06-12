@@ -53,7 +53,7 @@ public class GUI {
         // Populate the list of colors
         loadColorsFromJson("data/colors.json");
 
-        Board startBoard = Solver.getRootBoard("boards/board3.json");
+        Board startBoard = Solver.getRootBoard("boards/board5.json");
         try {
             startBoard.updateAll();
         } catch (InvalidMoveException e) {
@@ -63,12 +63,14 @@ public class GUI {
 
         System.out.println("Starting board:" + startBoard.simpleReadout());
 
-        final Board board = Solver.solveBoard(startBoard, 0);
+        // final Board board = startBoard;
+        // final Board board = Solver.solveBoard(startBoard, 0);
+        final Board board = Solver.solveBoardBetter(startBoard);
         if (board == null) {
             System.err.println("No solution found");
             return;
         }
-
+        
         SwingUtilities.invokeLater(() -> {
             JFrame frame = new JFrame("Grid");
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
