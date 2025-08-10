@@ -4,6 +4,8 @@ import java.util.PriorityQueue;
 
 /* Container class for a game of numberlink */
 public class Board {
+    private final int width;
+    private final int height;
     private final Location[][] grid;
     private final PriorityQueue<Move> moves = new PriorityQueue<>((a, b) -> {
         // Higher score goes first
@@ -16,10 +18,12 @@ public class Board {
     /**
      * @param filename Path to the JSON file containing the board data
      */
-    public Board(Location[][] grid) {
+    public Board(Location[][] grid, int width, int height) {
         this.grid = grid;
+        this.width = width;
+        this.height = height;
 
-        this.updatesScheduled = new PriorityQueue<>(Solver.BOARD_SIZE * Solver.BOARD_SIZE, (a, b) -> {
+        this.updatesScheduled = new PriorityQueue<>(width * height, (a, b) -> {
             // For now, just say that all locations are equal; the update order doesn't affect the correctness of the result
             return 0;
         });
@@ -27,7 +31,7 @@ public class Board {
 
     // Copy constructor
     public Board(Board other) {
-        this(new Location[other.grid.length][other.grid[0].length]);
+        this(new Location[other.grid.length][other.grid[0].length], other.width, other.height);
 
         for (int i = 0; i < grid.length; i++) {
             for (int j = 0; j < grid[i].length; j++) {
@@ -36,11 +40,38 @@ public class Board {
         }
     }
 
+    public Board(String[] contents, int width, int height) {
+        this(getGridFromString(contents, width, height), width, height);
+
+        for (int row = 0; row < height; row++) {
+            for (int col = 0; col < width; col++) {
+                this.updatesScheduled.add(this.grid[row][col]);
+            }
+        }
+    }
+
+    public static Location[][] getGridFromString(String[] contents, int width, int height) {
+        Location[][] grid = new Location[height][width];
+
+        for (int row = 0; row < height; row++) {
+            for (int col = 0; col < width; col++) {
+                if (contents[row].charAt(col) == '.') {
+                    grid[row][col] = new Location(new Coordinate(row, col), null, false);
+                } else {
+                    // Convert hex character to integer; index is char value - 'A'
+                    int colorIndex = contents[row].charAt(col) - 'A';
+                    grid[row][col] = new Location(new Coordinate(row, col), colorIndex, true);
+                }
+            }
+        }
+        return grid;
+    }
+
     public ArrayList<Move> getMoves() {
         ArrayList<Move> moves = new ArrayList<>();
 
-        for (int i = 0; i < Solver.BOARD_SIZE; i++) {
-            for (int j = 0; j < Solver.BOARD_SIZE; j++) {
+        for (int i = 0; i < this.height; i++) {
+            for (int j = 0; j < this.width; j++) {
                 Location loc = grid[i][j];
                 if (loc.getRemainingConnections() <= 0) {
                     continue;
@@ -95,9 +126,6 @@ public class Board {
         while ((loc = updatesScheduled.poll()) != null) {
             loc.checkConnections(this);
         }
-
-        // We won't need it, so we delete this for memory efficiency
-        updatesScheduled = null;
     }
 
     public Location getLocation(int row, int col) {
@@ -116,6 +144,14 @@ public class Board {
         return moves;
     }
 
+    public int getWidth() {
+        return width;
+    }
+
+    public int getHeight() {
+        return height;
+    }
+
     public boolean isSolved() {
         for (Location[] row : grid) {
             for (Location loc : row) {
@@ -131,19 +167,18 @@ public class Board {
     public String simpleReadout() {
         StringBuilder sb = new StringBuilder();
         sb.append("\n   ");
-        for (int i = 0; i < Solver.BOARD_SIZE; i++) {
-            sb.append(i + " ");
+        for (int i = 0; i < this.width; i++) {
+            sb.append(i%10 + " ");
         }
         sb.append("\n\n");
         for (Location[] row : grid) {
-            boolean[] vertConnections = new boolean[Solver.BOARD_SIZE];
-            sb.append(row[0].getCoordinate().getRow() + "| ");
+            boolean[] vertConnections = new boolean[this.width];
+            sb.append(row[0].getCoordinate().getRow()%10 + "| ");
             for (Location loc : row) {
                 if (loc.getColorIndex() == null) {
                     sb.append(".");
                 } else {
-                    // print as hex
-                    sb.append(String.format("%01X", loc.getColorIndex()));
+                    sb.append((char) ('A' + loc.getColorIndex()));
                 }
 
                 if (loc.getConnections()[3]) {
@@ -166,8 +201,8 @@ public class Board {
             sb.append("\n");
         }
         sb.append("   ");
-        for (int i = 0; i < Solver.BOARD_SIZE; i++) {
-            sb.append(i + " ");
+        for (int i = 0; i < this.width; i++) {
+            sb.append(i%10 + " ");
         }
         sb.append("\n");
         return sb.toString();

@@ -104,11 +104,7 @@ public class Location {
 
         boolean editedOther = false;
 
-        if (getRemainingConnections() == 0) {
-            // Already have the maximum number of allowed connections
-        } else if (4 - blockedDirections.size() > getRemainingConnections()) {
-            // Can't prove any individual connection is correct
-        } else if (4 - blockedDirections.size() == getRemainingConnections()) {
+        if (4 - blockedDirections.size() == getRemainingConnections()) {
             // Exactly as many options left as connections that need to be made; make them
             for (Coordinate dir : Coordinate.DIRECTIONS) {
                 if (!blockedDirections.contains(dir)) {
@@ -118,6 +114,21 @@ public class Location {
                     editedOther = true;
                 }
             }
+        } else if (getRemainingConnections() == 0) {
+            // Already have the maximum number of allowed connections
+        } else if (4 - blockedDirections.size() > getRemainingConnections()) {
+            // Check to see if there are any loose ends that can be connected
+            for (Coordinate dir : Coordinate.DIRECTIONS) {
+                if (!blockedDirections.contains(dir) && !connections[Coordinate.toIndex(dir)]) {
+                    Location other = board.getLocation(coordinate.add(dir));
+                    if (this.colorIndex == other.getColorIndex() && this.colorIndex != null) {
+                        connectTo(dir, other, board);
+                        editedOther = true;
+                    }
+                }
+            }
+            
+            // Can't prove any individual connection is correct
         } else {
             // Fewer options left than connections that need to be made; implies an invalid move or an improperly-formatted board
             throw new InvalidMoveException("Overconstrained location", this);
@@ -128,7 +139,7 @@ public class Location {
             // We have to check all connections; there are more possibilities than with colors
             for (Coordinate dir : Coordinate.DIRECTIONS) {
                 Coordinate newCoordinate = coordinate.add(dir);
-                if (newCoordinate.isInBounds()) {
+                if (newCoordinate.isInBounds(board)) {
                     board.getLocation(newCoordinate).registerUpdate(board);
                 }
             }
@@ -181,7 +192,7 @@ public class Location {
         }
 
         Coordinate newCoordinate = coordinate.add(direction);
-        if (!newCoordinate.isInBounds()) {
+        if (!newCoordinate.isInBounds(board)) {
             // Blocked because out of bounds
             return true;
         }
@@ -207,35 +218,55 @@ public class Location {
 
     // Checks a special and particularly complicated case that's forbidden, when a given path bends back on itself
     // Assumes location is correct and in bounds
+    // TODO make a test case for if color propagation makes a 2x2 block of one color
     public boolean isUTurn(Coordinate direction, Location other, Board board) {
+        
         Coordinate leftOffset = Coordinate.leftTurn(direction);
-        Coordinate rightOffset = Coordinate.rightTurn(direction);
+        Coordinate leftCoordinate = coordinate.add(leftOffset);
+        Coordinate leftCorner = leftCoordinate.add(direction);
         int dirIndex = Coordinate.toIndex(direction);
         int leftIndex = Coordinate.toIndex(leftOffset);
-        int rightIndex = Coordinate.toIndex(rightOffset);
 
         // Check if this makes a U-turn to the left
-        if (coordinate.add(leftOffset).isInBounds() && other.getCoordinate().add(leftOffset).isInBounds()) {
+        if (leftCoordinate.isInBounds(board) && leftCorner.isInBounds(board)) {
 
-            Location leftNeighbor = board.getLocation(coordinate.add(leftOffset));
-
+            // Check for a U-shaped connection of any color
+            Location leftNeighbor = board.getLocation(leftCoordinate);
             if (connections[leftIndex] && (leftNeighbor.getConnections()[dirIndex] || other.getConnections()[leftIndex])) {
                 return true;
             } else if (other.getConnections()[leftIndex] && leftNeighbor.getConnections()[dirIndex]) {
                 return true;
             }
+
+            // Check for a 2x2 square of the same color, regardless of connections
+            Location leftCornerNeighbor = board.getLocation(other.getCoordinate().add(leftOffset));
+            if (this.colorIndex != null && this.colorIndex.equals(other.getColorIndex())
+                && this.colorIndex.equals(leftNeighbor.getColorIndex())
+                && this.colorIndex.equals(leftCornerNeighbor.getColorIndex())) {
+                return true;
+            }
         }
 
+        Coordinate rightOffset = Coordinate.rightTurn(direction);
+        Coordinate rightCoordinate = coordinate.add(rightOffset);
+        Coordinate rightCorner = rightCoordinate.add(direction);
+        int rightIndex = Coordinate.toIndex(rightOffset);
+
         // Check if this makes a U-turn to the right
-        if (coordinate.add(rightOffset).isInBounds() && other.getCoordinate().add(rightOffset).isInBounds()) {
+        if (rightCoordinate.isInBounds(board) && rightCorner.isInBounds(board)) {
 
-            Location rightNeighbor = board.getLocation(coordinate.add(rightOffset));
-
+            Location rightNeighbor = board.getLocation(rightCoordinate);
             if (connections[rightIndex] && (rightNeighbor.getConnections()[dirIndex] || other.getConnections()[rightIndex])) {
                 return true;
             } else if (other.getConnections()[rightIndex] && rightNeighbor.getConnections()[dirIndex]) {
                 return true;
+            }
 
+            Location rightCornerNeighbor = board.getLocation(other.getCoordinate().add(rightOffset));
+            if (this.colorIndex != null && this.colorIndex.equals(other.getColorIndex())
+                && this.colorIndex.equals(rightNeighbor.getColorIndex())
+                && this.colorIndex.equals(rightCornerNeighbor.getColorIndex())) {
+                return true;
             }
         }
         

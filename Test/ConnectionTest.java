@@ -104,7 +104,6 @@ public class ConnectionTest {
     @Test
     public void blockingConnectionsTest() {
         try {
-            GUI.loadColorsFromJson("data/colors.json");     // Not ideal, but fine as a workaround for now
             Board board = Solver.getRootBoard("boards/test2.json");
 
             Location r0c0 = board.getLocation(0, 0);
@@ -210,7 +209,6 @@ public class ConnectionTest {
     @Test
     public void connectionPropagationTest() {
         try {
-            GUI.loadColorsFromJson("data/colors.json");
             Board board = Solver.getRootBoard("boards/test2.json");
 
             Location r0c0 = board.getLocation(0, 0);
@@ -238,15 +236,15 @@ public class ConnectionTest {
             assertEquals(r2c2.countConnections(), 1);
 
             // Need to reference the GUI.COLOR_MAP because those colors are slightly nonstandard
-            assertEquals(r0c0.getColorIndex(), GUI.COLOR_REVERSE_INDEX_MAP.get("blue"));
-            assertEquals(r0c1.getColorIndex(), GUI.COLOR_REVERSE_INDEX_MAP.get("blue"));
-            assertEquals(r0c2.getColorIndex(), GUI.COLOR_REVERSE_INDEX_MAP.get("blue"));
-            assertEquals(r1c0.getColorIndex(), GUI.COLOR_REVERSE_INDEX_MAP.get("blue"));
-            assertEquals(r1c1.getColorIndex(), GUI.COLOR_REVERSE_INDEX_MAP.get("red"));
-            assertEquals(r1c2.getColorIndex(), GUI.COLOR_REVERSE_INDEX_MAP.get("blue"));
-            assertEquals(r2c0.getColorIndex(), GUI.COLOR_REVERSE_INDEX_MAP.get("blue"));
-            assertEquals(r2c1.getColorIndex(), GUI.COLOR_REVERSE_INDEX_MAP.get("red"));
-            assertEquals(r2c2.getColorIndex(), GUI.COLOR_REVERSE_INDEX_MAP.get("blue"));
+            assertEquals(r0c0.getColorIndex(), GUI.colors.getColorIndexByName("blue"));
+            assertEquals(r0c1.getColorIndex(), GUI.colors.getColorIndexByName("blue"));
+            assertEquals(r0c2.getColorIndex(), GUI.colors.getColorIndexByName("blue"));
+            assertEquals(r1c0.getColorIndex(), GUI.colors.getColorIndexByName("blue"));
+            assertEquals(r1c1.getColorIndex(), GUI.colors.getColorIndexByName("red"));
+            assertEquals(r1c2.getColorIndex(), GUI.colors.getColorIndexByName("blue"));
+            assertEquals(r2c0.getColorIndex(), GUI.colors.getColorIndexByName("blue"));
+            assertEquals(r2c1.getColorIndex(), GUI.colors.getColorIndexByName("red"));
+            assertEquals(r2c2.getColorIndex(), GUI.colors.getColorIndexByName("blue"));
         } catch (InvalidMoveException e) {
             assertTrue(false);
         }
@@ -256,7 +254,6 @@ public class ConnectionTest {
     @Test
     public void connectionPropagationTest2() {
         try {
-            GUI.loadColorsFromJson("data/colors.json");
             Board board = Solver.getRootBoard("boards/board2.json");
 
             board.updatesScheduled.clear(); // Clear the queue so we can test the propagation behavior
@@ -266,8 +263,8 @@ public class ConnectionTest {
             board.updateAll();
 
             // In theory, this should be sufficient to prove the board is connected correctly
-            for (int row = 0; row < Solver.BOARD_SIZE; row++) {
-                for (int col = 0; col < Solver.BOARD_SIZE; col++) {
+            for (int row = 0; row < board.getHeight(); row++) {
+                for (int col = 0; col < board.getWidth(); col++) {
                     Location loc = board.getLocation(row, col);
                     if (loc.isStart()) {
                         assertEquals(loc.countConnections(), 1);

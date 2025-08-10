@@ -91,7 +91,7 @@ public class Coordinate {
         return "(" + row + ", " + col + ")";
     }
 
-    public boolean isInBounds() {
-        return row >= 0 && col >= 0 && row < Solver.BOARD_SIZE && col < Solver.BOARD_SIZE;
+    public boolean isInBounds(Board board) {
+        return row >= 0 && col >= 0 && row < board.getHeight() && col < board.getWidth();
     }
 }

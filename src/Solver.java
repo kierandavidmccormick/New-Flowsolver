@@ -17,10 +17,9 @@ import org.json.JSONTokener;
 // Even better, we can do short-depth BFS to find a move that's forced, then apply that repeatedly
 
 public class Solver {
-
-    public static int BOARD_SIZE;
     public static int boardsCreated = 0;
 
+    // TODO move all this code into the Board class and remove all the duplicate functionality
     public static Board getRootBoard(String filename) {
 
         // Pull the board data from the specified file
@@ -29,21 +28,20 @@ public class Solver {
             reader = new FileReader(filename);
         } catch (FileNotFoundException e) {
             e.printStackTrace();
-            BOARD_SIZE = 0;
             // This is fatal; exit the program
             System.exit(1);
             return null;
             // This return is unreachable, but it's here to satisfy the compiler
         }
         JSONObject obj = new JSONObject(new JSONTokener(reader));
-        
-        BOARD_SIZE = obj.getInt("size");
-        Location[][] grid = new Location[BOARD_SIZE][BOARD_SIZE];
+
+        int board_size = obj.getInt("size");    // These are all square
+        Location[][] grid = new Location[board_size][board_size];
 
         // Initialize the grid with blank locations
         // It's easiest to do it this way because of how we read the board file
-        for (int i = 0; i < BOARD_SIZE; i++) {
-            for (int j = 0; j < BOARD_SIZE; j++) {
+        for (int i = 0; i < board_size; i++) {
+            for (int j = 0; j < board_size; j++) {
                 grid[i][j] = null;
             }
         }
@@ -59,21 +57,21 @@ public class Solver {
             int endCol = colorObj.getInt(2);
             int endRow = colorObj.getInt(3);
 
-            if (!GUI.COLOR_REVERSE_INDEX_MAP.containsKey(key)) {
+            if (GUI.colors.getColorIndexByName(key) == null) {
                 System.err.println("Unknown color: " + key);
                 continue;
             }
 
             // Create Location objects for the start and end points
-            grid[startRow][startCol] = new Location(new Coordinate(startRow, startCol), GUI.COLOR_REVERSE_INDEX_MAP.get(key), true);
-            grid[endRow][endCol] = new Location(new Coordinate(endRow, endCol), GUI.COLOR_REVERSE_INDEX_MAP.get(key), true);
+            grid[startRow][startCol] = new Location(new Coordinate(startRow, startCol), GUI.colors.getColorIndexByName(key), true);
+            grid[endRow][endCol] = new Location(new Coordinate(endRow, endCol), GUI.colors.getColorIndexByName(key), true);
         }
 
-        Board rootBoard = new Board(grid);
+        Board rootBoard = new Board(grid, board_size, board_size);
 
         // Initialize everything else to be blank
-        for (int i = 0; i < BOARD_SIZE; i++) {
-            for (int j = 0; j < BOARD_SIZE; j++) {
+        for (int i = 0; i < board_size; i++) {
+            for (int j = 0; j < board_size; j++) {
                 if (grid[i][j] != null) {
                     // Already did this one
                 } else {
@@ -88,58 +86,41 @@ public class Solver {
         return rootBoard;
     }
 
-    // Recursive DFS
-    // Very dumb; only really works for easy problems
-    // public static Board solveBoard(Board board, int depth) {
-    //     if (depth > BOARD_SIZE * BOARD_SIZE) {
-    //         System.err.println("Too deep; giving up");
-    //         // In theory, this shouldn't happen, but this is still useful just in case
-    //         return null;
-    //     }
-
-    //     while (!board.getMovesQueue().isEmpty()) {
-    //         Board newBoard = new Board(board);
-    //         Move move = board.getMovesQueue().poll();
-    //         try {
-    //             newBoard.applyMove(move);
-    //             newBoard.updateMoves();
-    //         } catch (InvalidMoveException e) {
-    //             // Invalid move; skip this one
-    //             continue;
-    //         }
-
-    //         boardsCreated++;
-
-    //         if (newBoard.isSolved()) {
-    //             return newBoard;
-    //         }
-
-    //         Board deeperChild = solveBoard(newBoard, depth + 1);
-    //         if (deeperChild != null) {
-    //             return deeperChild;
-    //         }
-    //     }
-    //     return null;
-    // }
-
-    public static Board solveBoardBetter(Board board) {
+    public static Board solveBoard(Board board) {
+        boardsCreated = 0;
         while (true) {
             // Iterative Deepening Search (IDS) with a depth limit of 4
-            Move forcedMove = null;
-            for (int depthLimit = 1; depthLimit <= 4; depthLimit++) {
+            Move[] forcedMoves = null;
+            int depthLimitAt = 0;
+            for (int depthLimit = 0; depthLimit <= 4; depthLimit++) {
+
+                if (depthLimit >= 0) {
+                    System.out.println("Searching for forced moves at depth " + depthLimit + " - Created " + boardsCreated + " boards so far");
+                }
+
                 // Try to find a forced move
-                forcedMove = findForcedMove(board, depthLimit);
-                if (forcedMove != null) {
+                forcedMoves = findForcedMove(board, depthLimit);
+                if (forcedMoves != null || board.isSolved()) {
+                    depthLimitAt = depthLimit;
                     break;
                 }
             }
-            if (forcedMove == null) {
+            if (forcedMoves == null) {
                 // No forced move found; return the current board
                 return board;
             }
 
             try {
-                board.applyMove(forcedMove);
+                for (Move forcedMove : forcedMoves) {
+                    board.applyMove(forcedMove);
+                }
+                if (depthLimitAt > 0) {
+                    System.out.println("Found forced move: at d=" + depthLimitAt + " " + forcedMoves[0] + (forcedMoves.length > 1 ? " and " + forcedMoves[1] : "") + " - Created " + boardsCreated + " boards so far");
+                    System.out.println(board.simpleReadout());
+                } else if (depthLimitAt == 0) {
+                    System.out.println("Found forced move: at d=" + depthLimitAt + " " + forcedMoves[0] + (forcedMoves.length > 1 ? " and " + forcedMoves[1] : "") + " - Created " + boardsCreated + " boards so far");
+                    System.out.println(board.simpleReadout());
+                }
             } catch (InvalidMoveException e) {
                 // This shouldn't happen, but if it does, just return the current board
                 System.err.println("Invalid move: " + e.getMessage());
@@ -148,16 +129,19 @@ public class Solver {
         }
     }
 
-    public static Move findForcedMove(Board board, int depthLimit) {
+    // Returns an array because it's possible for one location to have multiple forced moves (e.g. a corner)
+    // TODO can we optimize this by caching the testboards? - check all connections for a move for invalidity before calling isDeadly()
+    // TODO as well, we don't strictly want "moves" so much as "move combinations" - those are what we really ought to be validating, and that will probably reduce the solution depth
+    public static Move[] findForcedMove(Board board, int depthLimit) {
 
         ArrayList<Location> openLocations = board.getOpenLocations();
         HashMap<Location, ArrayList<Move>> candidates = new HashMap<>();
         for (Location loc : openLocations) {
             ArrayList<Move> moves = loc.getValidMoves(board);
-            if (moves.size() == 1) {
+            if (moves.size() == loc.getRemainingConnections()) {
                 // Only one move available; this is a forced move
-                // Unlikely, but possible; usually the local move forcing rules preempt this, but it's possible I've missed an edge case somewhere
-                return moves.get(0);
+                // Unlikely but possible. Usually the local move forcing rules preempt this, but it's possible I've missed an edge case somewhere
+                return moves.toArray(new Move[0]);
             } else if (moves.size() == 0) {
                 // Something has gone wrong; this location should not be open if there are no valid moves
                 System.err.println("No valid moves for location " + loc.getCoordinate());
@@ -167,6 +151,8 @@ public class Solver {
             candidates.put(loc, moves);
         }
 
+        // Check locations with fewer connetion possibilities and more open connections first
+        // From lowest to highest on coutMoveCombinations
         sortLocationsByConnections(openLocations, board);
 
         // Check all candidates and see if any of them trigger an InvalidMoveException; if so, remove it as a candidate
@@ -176,6 +162,7 @@ public class Solver {
                 Board testBoard = new Board(board);
                 try {
                     testBoard.applyMove(move);
+                    boardsCreated++;
                 } catch (InvalidMoveException e) {
                     // This move is invalid; remove it from the candidates
                     candidates.get(loc).remove(move);
@@ -188,9 +175,9 @@ public class Solver {
                 }
             }
 
-            if (candidates.get(loc).size() == 1) {
+            if (candidates.get(loc).size() == loc.getRemainingConnections() && candidates.get(loc).size() > 0) {
                 // If there's only one move left, return it
-                return candidates.get(loc).get(0);
+                return candidates.get(loc).toArray(new Move[0]);
             } else if (candidates.get(loc).size() == 0) {
                 // If there are no moves left, we shouldn't be here
                 System.err.println("Location " + loc.getCoordinate() + " has no valid moves");
@@ -221,14 +208,15 @@ public class Solver {
         // Check all open locations for forced moves
         for (Location loc : openLocations) {
             ArrayList<Move> moves = validMoves.get(loc);
-            if (moves == null || moves.size() == 0) {
-                return true; // No valid moves from this location, so this move is deadly
+            if (moves == null || moves.size() < loc.getRemainingConnections()) {
+                return true; // No or insufficient valid moves from this location, so this move is deadly
             }
 
             boolean deadly = true;
             // Check to see if there is at least one valid, non-deadly move
             for (Move move : moves) {
                 Board newBoard = new Board(board);
+                boardsCreated++;
                 try {
                     newBoard.applyMove(move);
                 } catch (InvalidMoveException e) {
@@ -248,7 +236,7 @@ public class Solver {
         return false;
     }
 
-    // It's important for performance to pick good locations first
+    // It's important for performance to pick good locations first - we choose the ones with the most restricted connections first
     // I make this a total ordering so the search is deterministic
     public static void sortLocationsByConnections(List<Location> locations, Board board) {
         locations.sort((a, b) -> {
