@@ -86,8 +86,11 @@ public class Solver {
         return rootBoard;
     }
 
-    public static Board solveBoard(Board board) {
+    public static ArrayList<Board> solveBoard(Board board) {
         boardsCreated = 0;
+        ArrayList<Board> solution = new ArrayList<>();
+        solution.add(board);
+
         while (true) {
             // Iterative Deepening Search (IDS) with a depth limit of 4
             Move[] forcedMoves = null;
@@ -99,21 +102,24 @@ public class Solver {
                 }
 
                 // Try to find a forced move
-                forcedMoves = findForcedMove(board, depthLimit);
+                forcedMoves = findForcedMove(solution.get(solution.size() - 1), depthLimit);
                 if (forcedMoves != null || board.isSolved()) {
                     depthLimitAt = depthLimit;
                     break;
                 }
             }
             if (forcedMoves == null) {
-                // No forced move found; return the current board
-                return board;
+                // No forced move found; return the current solution
+                return solution;
             }
 
             try {
+                Board newBoard = new Board(solution.get(solution.size() - 1));
                 for (Move forcedMove : forcedMoves) {
-                    board.applyMove(forcedMove);
+                    newBoard.applyMove(forcedMove);
                 }
+                solution.add(newBoard);
+                boardsCreated++;
                 if (depthLimitAt > 0) {
                     System.out.println("Found forced move: at d=" + depthLimitAt + " " + forcedMoves[0] + (forcedMoves.length > 1 ? " and " + forcedMoves[1] : "") + " - Created " + boardsCreated + " boards so far");
                     System.out.println(board.simpleReadout());
@@ -122,9 +128,9 @@ public class Solver {
                     System.out.println(board.simpleReadout());
                 }
             } catch (InvalidMoveException e) {
-                // This shouldn't happen, but if it does, just return the current board
+                // This shouldn't happen, but if it does, just return the current solution
                 System.err.println("Invalid move: " + e.getMessage());
-                return board;
+                return solution;
             }
         }
     }
