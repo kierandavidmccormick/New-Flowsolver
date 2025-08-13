@@ -149,44 +149,11 @@ public class Solver {
             candidates.put(loc, moves);
         }
 
-        // Check locations with fewer connetion possibilities and more open connections first
-        // From lowest to highest on coutMoveCombinations
+        // Check locations with fewer connection possibilities and more open connections first
+        // From lowest to highest on countMoveCombinations
         sortLocationsByConnections(openLocations, board);
 
-        // Check all candidates and see if any of them trigger an InvalidMoveException; if so, remove it as a candidate
-        // for (Location loc : openLocations) {
-        //     ArrayList<Move> moves = new ArrayList<>(candidates.get(loc));      // Make a copy to avoid concurrent modification issues
-        //     ArrayList<Board> testBoards = new ArrayList<>();
-        //     for (int i = 0; i < moves.size(); i++) {
-        //         Move move = moves.get(i);
-        //         Board testBoard = new Board(board);
-        //         try {
-        //             testBoard.applyMove(move);
-        //             boardsCreated++;
-        //         } catch (InvalidMoveException e) {
-        //             // This move is invalid; remove it from the candidates
-        //             candidates.get(loc).remove(move);
-        //             continue;
-        //         }
-
-        //         if (isDeadly(testBoard, depthLimit)) {
-        //             // This move leads to a deadly board; remove it from the candidates
-        //             candidates.get(loc).remove(move);
-        //         }
-        //     }
-
-        //     if (candidates.get(loc).size() == loc.getRemainingConnections() && candidates.get(loc).size() > 0) {
-        //         // If there's only one move left, return it
-        //         return candidates.get(loc).toArray(new Move[0]);
-        //     } else if (candidates.get(loc).size() == 0) {
-        //         // If there are no moves left, we shouldn't be here
-        //         System.err.println("Location " + loc.getCoordinate() + " has no valid moves");
-        //         return null;
-        //     }
-        // }
-
         // Like the above, but operating on move combinations rather than individual moves
-        // TODO FIRST, test this
         for (Location loc : openLocations) {
             ArrayList<Move[]> combos = loc.getValidMoveCombinations(board);
             ArrayList<Move[]> validCombos = new ArrayList<>();
@@ -202,7 +169,7 @@ public class Solver {
                     continue;
                 }
 
-                if (isDeadly(testBoard, depthLimit)) {
+                if (isDeadly(testBoard, depthLimit, null)) {
                     // This move combination leads to a deadly board; skip it
                     continue;
                 }
@@ -224,9 +191,7 @@ public class Solver {
     }
 
     // A board is deadly if there are no valid moves from an open location, or if all valid moves from an open location lead to a deadly board
-    // TODO Improve this; I can probably do a better distance metric, as well as making some effort to limit the scope of the search
-    // TODO shouldn't it be the case that I just have to check the local scope?
-    public static boolean isDeadly(Board board, int depthLimit) {
+    public static boolean isDeadly(Board board, int depthLimit, Coordinate target) {
         if (depthLimit == 0) {
             // Too deep; give up
             return false;
@@ -234,7 +199,13 @@ public class Solver {
 
         // Get all open locations on the board and sort to put the most promising ones first
         ArrayList<Location> openLocations = board.getOpenLocations();
-        sortLocationsByConnections(openLocations, board);
+        if (target == null) {
+            // Sort by the number of connections available to find a promising location, wherever it is
+            sortLocationsByConnections(openLocations, board);
+        } else {
+            // Sort by the distance to the target to quickly evaluate a move at a particular location
+            sortLocationsByDistance(openLocations, board, target);
+        }
 
         // Get the moves for each location
         HashMap<Location, ArrayList<Move>> validMoves = new HashMap<>();
@@ -249,24 +220,18 @@ public class Solver {
                 return true; // No or insufficient valid moves from this location, so this move is deadly
             }
 
-            boolean deadly = true;
             // Check to see if there is at least one valid, non-deadly move
+            Board newBoard = new Board(board);
+            boardsCreated++;
             for (Move move : moves) {
-                Board newBoard = new Board(board);
-                boardsCreated++;
                 try {
                     newBoard.applyMove(move);
                 } catch (InvalidMoveException e) {
                     // Invalid move; skip this one
                     continue;
                 }
-
-                if (!isDeadly(newBoard, depthLimit - 1)) {
-                    deadly = false;
-                }
             }
-            if (deadly) {
-                // All moves from this location lead to a deadly board
+            if (isDeadly(newBoard, depthLimit - 1, moves.get(0).getStart())) {
                 return true;
             }
         }
@@ -287,6 +252,26 @@ public class Solver {
             }
 
             // If the counts are equal, sort by the xcoordinate, then by the ycoordinate
+            if (a.getCoordinate().getRow() != b.getCoordinate().getRow()) {
+                return Integer.compare(a.getCoordinate().getRow(), b.getCoordinate().getRow());
+            } else {
+                return Integer.compare(a.getCoordinate().getCol(), b.getCoordinate().getCol());
+            }
+        });
+    }
+
+    public static void sortLocationsByDistance(List<Location> locations, Board board, Coordinate target) {
+        locations.sort((a, b) -> {
+            // Sort by the distance to the target coordinate
+            int aDistance = a.getCoordinate().manhattanDistance(target);
+            int bDistance = b.getCoordinate().manhattanDistance(target);
+
+            // If the distances are not equal, sort by that
+            if (aDistance != bDistance) {
+                return Integer.compare(aDistance, bDistance);
+            }
+
+            // If the distances are equal, sort by the xcoordinate, then by the ycoordinate
             if (a.getCoordinate().getRow() != b.getCoordinate().getRow()) {
                 return Integer.compare(a.getCoordinate().getRow(), b.getCoordinate().getRow());
             } else {
