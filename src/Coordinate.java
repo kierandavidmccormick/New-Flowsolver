@@ -94,4 +94,8 @@ public class Coordinate {
     public boolean isInBounds(Board board) {
         return row >= 0 && col >= 0 && row < board.getHeight() && col < board.getWidth();
     }
+
+    public int manhattanDistance(Coordinate other) {
+        return Math.abs(this.row - other.row) + Math.abs(this.col - other.col);
+    }
 }
