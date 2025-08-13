@@ -130,8 +130,6 @@ public class Solver {
     }
 
     // Returns an array because it's possible for one location to have multiple forced moves (e.g. a corner)
-    // TODO can we optimize this by caching the testboards? - check all connections for a move for invalidity before calling isDeadly()
-    // TODO as well, we don't strictly want "moves" so much as "move combinations" - those are what we really ought to be validating, and that will probably reduce the solution depth
     public static Move[] findForcedMove(Board board, int depthLimit) {
 
         ArrayList<Location> openLocations = board.getOpenLocations();
@@ -156,39 +154,78 @@ public class Solver {
         sortLocationsByConnections(openLocations, board);
 
         // Check all candidates and see if any of them trigger an InvalidMoveException; if so, remove it as a candidate
+        // for (Location loc : openLocations) {
+        //     ArrayList<Move> moves = new ArrayList<>(candidates.get(loc));      // Make a copy to avoid concurrent modification issues
+        //     ArrayList<Board> testBoards = new ArrayList<>();
+        //     for (int i = 0; i < moves.size(); i++) {
+        //         Move move = moves.get(i);
+        //         Board testBoard = new Board(board);
+        //         try {
+        //             testBoard.applyMove(move);
+        //             boardsCreated++;
+        //         } catch (InvalidMoveException e) {
+        //             // This move is invalid; remove it from the candidates
+        //             candidates.get(loc).remove(move);
+        //             continue;
+        //         }
+
+        //         if (isDeadly(testBoard, depthLimit)) {
+        //             // This move leads to a deadly board; remove it from the candidates
+        //             candidates.get(loc).remove(move);
+        //         }
+        //     }
+
+        //     if (candidates.get(loc).size() == loc.getRemainingConnections() && candidates.get(loc).size() > 0) {
+        //         // If there's only one move left, return it
+        //         return candidates.get(loc).toArray(new Move[0]);
+        //     } else if (candidates.get(loc).size() == 0) {
+        //         // If there are no moves left, we shouldn't be here
+        //         System.err.println("Location " + loc.getCoordinate() + " has no valid moves");
+        //         return null;
+        //     }
+        // }
+
+        // Like the above, but operating on move combinations rather than individual moves
+        // TODO FIRST, test this
         for (Location loc : openLocations) {
-            ArrayList<Move> moves = new ArrayList<>(candidates.get(loc));      // Make a copy to avoid concurrent modification issues
-            for (Move move : moves) {
+            ArrayList<Move[]> combos = loc.getValidMoveCombinations(board);
+            ArrayList<Move[]> validCombos = new ArrayList<>();
+            for (Move[] combo : combos) {
                 Board testBoard = new Board(board);
+                boardsCreated++;
                 try {
-                    testBoard.applyMove(move);
-                    boardsCreated++;
+                    for (Move move : combo) {
+                        testBoard.applyMove(move);
+                    }
                 } catch (InvalidMoveException e) {
-                    // This move is invalid; remove it from the candidates
-                    candidates.get(loc).remove(move);
+                    // Skip this move combo, don't check the resulting board
                     continue;
                 }
 
                 if (isDeadly(testBoard, depthLimit)) {
-                    // This move leads to a deadly board; remove it from the candidates
-                    candidates.get(loc).remove(move);
+                    // This move combination leads to a deadly board; skip it
+                    continue;
                 }
+
+                validCombos.add(combo);
             }
 
-            if (candidates.get(loc).size() == loc.getRemainingConnections() && candidates.get(loc).size() > 0) {
-                // If there's only one move left, return it
-                return candidates.get(loc).toArray(new Move[0]);
-            } else if (candidates.get(loc).size() == 0) {
-                // If there are no moves left, we shouldn't be here
-                System.err.println("Location " + loc.getCoordinate() + " has no valid moves");
+            if (validCombos.size() == 0) {
+                // If there are no valid combinations left, we shouldn't be here
+                System.err.println("Location " + loc.getCoordinate() + " has no valid move combinations");
                 return null;
+            } else if (validCombos.size() == 1) {
+                // If there's only one combination left, return it
+                return validCombos.get(0);
             }
-        }
 
+        }
         return null;
     }
 
     // A board is deadly if there are no valid moves from an open location, or if all valid moves from an open location lead to a deadly board
+    // TODO Improve this; I can probably do a better distance metric, as well as making some effort to limit the scope of the search
+    // TODO shouldn't it be the case that I just have to check the local scope?
     public static boolean isDeadly(Board board, int depthLimit) {
         if (depthLimit == 0) {
             // Too deep; give up

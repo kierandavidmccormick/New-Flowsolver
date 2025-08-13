@@ -182,6 +182,30 @@ public class Location {
         return validMoves;
     }
 
+    public ArrayList<Move[]> getValidMoveCombinations(Board board) {
+        ArrayList<Move[]> combinations = new ArrayList<>();
+        ArrayList<Move> validMoves = getValidMoves(board);
+        int comboSize = getRemainingConnections();
+
+        if (comboSize == 1) {
+            // Just return the valid moves
+            combinations.addAll(validMoves.stream().map(move -> new Move[]{move}).toList());
+        } else if (comboSize == 2) {
+            // Combinations of 2 from validMoves
+            for (int i = 0; i < validMoves.size(); i++) {
+                for (int j = i + 1; j < validMoves.size(); j++) {
+                    if (i == j) continue; // Skip same index
+                    combinations.add(new Move[]{validMoves.get(i), validMoves.get(j)});
+                }
+            }
+        } else {
+            // Something has gone wrong
+            System.err.println("Unexpected number of remaining connections");
+        }
+        
+        return combinations;
+    }
+
     // Determines whether it's valid to make a connection in the given direction
     // This has a bunch of finicky cases that really need 100% test coverage
     public boolean isBlockingConnection(Coordinate direction, Board board) {
