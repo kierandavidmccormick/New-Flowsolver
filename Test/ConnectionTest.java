@@ -3,7 +3,6 @@ import org.junit.Test;
 
 import src.Board;
 import src.Location;
-import src.Solver;
 import src.Coordinate;
 import src.GUI;
 import src.InvalidMoveException;
@@ -17,7 +16,7 @@ public class ConnectionTest {
     @Test
     public void connectionTest() {
         try {
-            Board board = Solver.getRootBoard("boards/test1.json");
+            Board board = new Board("boards/test1.json");
 
             Location topLeft = board.getLocation(0, 0);
             Location topRight = board.getLocation(0, 1);
@@ -42,7 +41,7 @@ public class ConnectionTest {
     @Test
     public void colorConnectionTest() {
         try {
-            Board board = Solver.getRootBoard("boards/test1.json");
+            Board board = new Board("boards/test1.json");
 
             Location topLeft = board.getLocation(0, 0);
             Location topRight = board.getLocation(0, 1);
@@ -66,7 +65,7 @@ public class ConnectionTest {
     @Test
     public void colorPropagationTest1() {
         try {
-            Board board = Solver.getRootBoard("boards/test1.json");
+            Board board = new Board("boards/test1.json");
 
             Location topLeft = board.getLocation(0, 0);
             Location topRight = board.getLocation(0, 1);
@@ -85,7 +84,7 @@ public class ConnectionTest {
     @Test
     public void colorPropagationTest2() {
         try {
-            Board board = Solver.getRootBoard("boards/test1.json");
+            Board board = new Board("boards/test1.json");
 
             Location topLeft = board.getLocation(0, 0);
             Location topRight = board.getLocation(0, 1);
@@ -104,7 +103,7 @@ public class ConnectionTest {
     @Test
     public void blockingConnectionsTest() {
         try {
-            Board board = Solver.getRootBoard("boards/test2.json");
+            Board board = new Board("boards/test2.json");
 
             Location r0c0 = board.getLocation(0, 0);
             Location r0c1 = board.getLocation(0, 1);
@@ -166,7 +165,7 @@ public class ConnectionTest {
     @Test
     public void uTurnTest1() {
         try {
-            Board board = Solver.getRootBoard("boards/test1.json");
+            Board board = new Board("boards/test1.json");
 
             Location topLeft = board.getLocation(0, 0);
             Location topRight = board.getLocation(0, 1);
@@ -188,7 +187,7 @@ public class ConnectionTest {
     @Test
     public void uTurnTest2() {
         try {
-            Board board = Solver.getRootBoard("boards/test1.json");
+            Board board = new Board("boards/test1.json");
 
             Location topLeft = board.getLocation(0, 0);
             Location topRight = board.getLocation(0, 1);
@@ -209,7 +208,7 @@ public class ConnectionTest {
     @Test
     public void connectionPropagationTest() {
         try {
-            Board board = Solver.getRootBoard("boards/test2.json");
+            Board board = new Board("boards/test2.json");
 
             Location r0c0 = board.getLocation(0, 0);
             Location r0c1 = board.getLocation(0, 1);
@@ -254,7 +253,7 @@ public class ConnectionTest {
     @Test
     public void connectionPropagationTest2() {
         try {
-            Board board = Solver.getRootBoard("boards/board2.json");
+            Board board = new Board("boards/board2.json");
 
             board.updatesScheduled.clear(); // Clear the queue so we can test the propagation behavior
             board.updatesScheduled.add(board.getLocation(0, 0));

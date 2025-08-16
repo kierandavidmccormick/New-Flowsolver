@@ -4,9 +4,6 @@ import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import java.awt.Color;
 import java.awt.GridLayout;
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
 import java.util.ArrayList;
 
 import javax.swing.BorderFactory;
@@ -60,7 +57,7 @@ public class GUI {
     }
 
     private static ArrayList<Board> getSolveHistory(int i) {
-        Board startBoard = getBoardFromStringArchive("boards/imported.txt", i);
+        Board startBoard = new Board("boards/imported.txt", i);
         try {
             startBoard.updateAll();
         } catch (InvalidMoveException e) {
@@ -207,46 +204,6 @@ public class GUI {
 
         frame.add(mainPanel, BorderLayout.CENTER);
         frame.setVisible(true);
-    }
-
-    public static Board getBoardFromStringArchive(String filename, int index) {
-        // Open a file
-        try (BufferedReader reader = new BufferedReader(new FileReader(filename))) {
-            // Read and discard lines until we the start of the right board
-            String line;
-            int currentIndex = 0;
-            while ((line = reader.readLine()) != null) {
-                if (line.length() > 0 && Character.isDigit(line.charAt(0))) {
-                    if (currentIndex == index) {
-                        break; // Found the start of the right board
-                    }
-                    currentIndex++;
-                }
-            }
-
-            // Split line and take the first part as the board size
-            String[] parts = line.split(" ");
-            int width = Integer.parseInt(parts[0]);
-            int height = Integer.parseInt(parts[1]);
-            String[] contents = new String[height];
-
-            // Read the next 'height' lines as the board contents
-            for (int i = 0; i < height; i++) {
-                if ((line = reader.readLine()) != null) {
-                    contents[i] = line;
-                } else {
-                    System.err.println("Not enough lines in file for board height " + height);
-                    return null;
-                }
-            }
-
-            // Create a Board object from the contents
-            return new Board(contents, width, height);
-
-        } catch (IOException e) {
-            e.printStackTrace();
-            return null;
-        }
     }
 
     private static JPanel getGridSquare(ArrayList<ArrayList<Board>> solveHistories, int[] boardIndexHolder, int[] solutionIndexHolder, int row, int col) {

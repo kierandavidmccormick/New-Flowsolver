@@ -1,14 +1,8 @@
 package src;
 
-import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-
-import org.json.JSONArray;
-import org.json.JSONObject;
-import org.json.JSONTokener;
 
 // A note: If all the moves from a given square are deadly, that square is deadly, as is the whole branch of the tree that generated from it
 // I could do something like: globally generate all first moves, then only work locally to try to prove subtrees as fatal
@@ -18,73 +12,6 @@ import org.json.JSONTokener;
 
 public class Solver {
     public static int boardsCreated = 0;
-
-    // TODO move all this code into the Board class and remove all the duplicate functionality
-    public static Board getRootBoard(String filename) {
-
-        // Pull the board data from the specified file
-        FileReader reader;
-        try {
-            reader = new FileReader(filename);
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-            // This is fatal; exit the program
-            System.exit(1);
-            return null;
-            // This return is unreachable, but it's here to satisfy the compiler
-        }
-        JSONObject obj = new JSONObject(new JSONTokener(reader));
-
-        int board_size = obj.getInt("size");    // These are all square
-        Location[][] grid = new Location[board_size][board_size];
-
-        // Initialize the grid with blank locations
-        // It's easiest to do it this way because of how we read the board file
-        for (int i = 0; i < board_size; i++) {
-            for (int j = 0; j < board_size; j++) {
-                grid[i][j] = null;
-            }
-        }
-
-        // Populate the grid with Location objects for each of the starting positions
-        JSONObject flows = obj.getJSONObject("flows");
-        for (String key : flows.keySet()) {
-            // Fetch the data for a given color
-            // A "color" consists of an array of four ints, representing the start and end coordinates
-            JSONArray colorObj = flows.getJSONArray(key);
-            int startCol = colorObj.getInt(0);
-            int startRow = colorObj.getInt(1);
-            int endCol = colorObj.getInt(2);
-            int endRow = colorObj.getInt(3);
-
-            if (GUI.colors.getColorIndexByName(key) == null) {
-                System.err.println("Unknown color: " + key);
-                continue;
-            }
-
-            // Create Location objects for the start and end points
-            grid[startRow][startCol] = new Location(new Coordinate(startRow, startCol), GUI.colors.getColorIndexByName(key), true);
-            grid[endRow][endCol] = new Location(new Coordinate(endRow, endCol), GUI.colors.getColorIndexByName(key), true);
-        }
-
-        Board rootBoard = new Board(grid, board_size, board_size);
-
-        // Initialize everything else to be blank
-        for (int i = 0; i < board_size; i++) {
-            for (int j = 0; j < board_size; j++) {
-                if (grid[i][j] != null) {
-                    // Already did this one
-                } else {
-                    grid[i][j] = new Location(new Coordinate(i, j), null, false);
-                }
-
-                // Schedule an update for this location
-                rootBoard.updatesScheduled.add(grid[i][j]);
-            }
-        }
-
-        return rootBoard;
-    }
 
     public static ArrayList<Board> solveBoard(Board board) {
         boardsCreated = 0;
