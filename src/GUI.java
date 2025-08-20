@@ -12,7 +12,6 @@ import java.awt.Graphics;
 import java.awt.Dimension;
 
 // TODO: Add exterior corners to the diff boundaries
-// TODO: Round off the line corners
 // TODO: Add a "play" button to step through the solution automatically
 
 public class GUI {
@@ -327,16 +326,18 @@ public class GUI {
                 // Draw the connections to each connected grid square
                 for (int i = 0; i < Coordinate.DIRECTIONS.length; i++) {
                     Coordinate dir = Coordinate.DIRECTIONS[i];
-                    int neighborCenterX = centerX + dir.getCol() * getWidth();
-                    int neighborCenterY = centerY + dir.getRow() * getHeight();
+
                     if (loc.getConnections()[i]) {
                         g.setColor(circleColor);
-                        g.fillRect(
-                            Math.min(centerX, neighborCenterX) - lineWidth / 2,
-                            Math.min(centerY, neighborCenterY) - lineWidth / 2,
-                            Math.abs(neighborCenterX - centerX) + lineWidth,
-                            Math.abs(neighborCenterY - centerY) + lineWidth
-                        );
+                        if (dir == Coordinate.UP) {
+                            g.fillRect(centerX - lineWidth / 2, 0, lineWidth, centerY);
+                        } else if (dir == Coordinate.DOWN) {
+                            g.fillRect(centerX - lineWidth / 2, centerY, lineWidth, getHeight() - centerY);
+                        } else if (dir == Coordinate.LEFT) {
+                            g.fillRect(0, centerY - lineWidth / 2, centerX, lineWidth);
+                        } else if (dir == Coordinate.RIGHT) {
+                            g.fillRect(centerX, centerY - lineWidth / 2, getWidth() - centerX, lineWidth);
+                        }
                     }
 
                     int neighborRow = row + dir.getRow();
@@ -356,6 +357,18 @@ public class GUI {
                                     dir == Coordinate.DOWN ? getHeight() : 0 - borderWidth,
                                     dir == Coordinate.LEFT || dir == Coordinate.RIGHT ? borderWidth : getWidth(),
                                     dir == Coordinate.UP || dir == Coordinate.DOWN ? borderWidth : getHeight());
+                    }
+                }
+
+                // Draw an additional circle of the same color if the location is a corner
+                if (loc.countConnections() == 2) {
+                    if (loc.getConnections()[Coordinate.toIndex(Coordinate.UP)] && loc.getConnections()[Coordinate.toIndex(Coordinate.DOWN)]) {
+                        // Do nothing
+                    } else if (loc.getConnections()[Coordinate.toIndex(Coordinate.LEFT)] && loc.getConnections()[Coordinate.toIndex(Coordinate.RIGHT)]) {
+                        // Do nothing
+                    } else {
+                        g.setColor(circleColor);
+                        g.fillOval(centerX - lineWidth / 2, centerY - lineWidth / 2, lineWidth, lineWidth);
                     }
                 }
 
