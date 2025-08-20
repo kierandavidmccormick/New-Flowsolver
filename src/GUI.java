@@ -11,14 +11,16 @@ import java.awt.BorderLayout;
 import java.awt.Graphics;
 import java.awt.Dimension;
 
-// TODO: Better visualization for per-move changes, to see the diff from the previous move
+// TODO: Add exterior corners to the diff boundaries
+// TODO: Round off the line corners
 // TODO: Add a "play" button to step through the solution automatically
+// TODO: Add buttons to skip forward and backward for both boards and solutions
 
 public class GUI {
 
     private static final int FRAME_WIDTH = 1000;
     private static final int FRAME_HEIGHT = 1000;
-    private static final int OUTER_BORDER_SIZE = 20; // Size of the border around the grid
+    private static final int OUTER_BORDER_SIZE = 0; // Size of the border around the grid
 
     public static final Colors colors = new Colors("data/colors.json");
 
@@ -27,25 +29,30 @@ public class GUI {
     public static void main(String[] args) {
 
         final ArrayList<ArrayList<Board>> solveHistories = new ArrayList<>();
+        final ArrayList<ArrayList<boolean[][]>> diffs = new ArrayList<>(); // Store diffs for each board's solve history
+        final ArrayList<ArrayList<Move[]>> moveHistories = new ArrayList<>(); // Store move histories for each board
 
         int boardIndex = 0;                                         // Change this to view different boards
         final int[] boardIndexHolder = {boardIndex};                // Use an array to allow mutation in lambdas
         int solution_index = 0;                                     // Change this to view different moves in a solution
         final int[] solutionIndexHolder = {solution_index};         // Use an array to allow mutation in lambdas
 
-        SwingUtilities.invokeLater(() -> renderStuff(solveHistories, boardIndexHolder, solutionIndexHolder));
+        SwingUtilities.invokeLater(() -> renderStuff(solveHistories, diffs, moveHistories, boardIndexHolder, solutionIndexHolder));
 
         // Start a separate thread to load solutions in the background
         new Thread(() -> {
             for (int i = solveHistories.size(); i < 270; i++) {
                 if (i == 155 || i == 176) continue; // Skip boards 155 and 176 as they have non-unique solutions
 
-                ArrayList<Board> solveHistory = getSolveHistory(i);
+                ArrayList<Move[]> moveHistory = new ArrayList<>();
+                ArrayList<Board> solveHistory = getSolveHistory(i, moveHistory);
                 if (solveHistory == null || solveHistory.isEmpty()) {
                     System.err.println("No solution found for board " + i);
                     break;
                 }
                 solveHistories.add(solveHistory);
+                diffs.add(getDiffs(solveHistory));
+                moveHistories.add(moveHistory);
 
                 // Update button states and labels on the Swing thread
                 SwingUtilities.invokeLater(() -> {
@@ -56,7 +63,8 @@ public class GUI {
         }).start();
     }
 
-    private static ArrayList<Board> getSolveHistory(int i) {
+    // TODO Really, these should live in Solver.java
+    private static ArrayList<Board> getSolveHistory(int i, ArrayList<Move[]> moveHistory) {
         Board startBoard = new Board("boards/imported.txt", i);
         try {
             startBoard.updateAll();
@@ -66,11 +74,21 @@ public class GUI {
         }
 
         System.out.println("Starting board " + i + ":\n" + startBoard.simpleReadout() + "\n");
-        
-        return Solver.solveBoard(startBoard);
+
+        return Solver.solveBoard(startBoard, moveHistory);
     }
 
-    private static void renderStuff(ArrayList<ArrayList<Board>> solveHistories, int[] boardIndexHolder, int[] solutionIndexHolder) {
+    private static ArrayList<boolean[][]> getDiffs(ArrayList<Board> solveHistory) {
+        ArrayList<boolean[][]> diffs = new ArrayList<>();
+        diffs.add(solveHistory.get(0).getDiff(solveHistory.get(0))); // First board has no diff
+        for (int i = 1; i < solveHistory.size(); i++) {
+            boolean[][] diff = solveHistory.get(i).getDiff(solveHistory.get(i - 1));
+            diffs.add(diff);
+        }
+        return diffs;
+    }
+
+    private static void renderStuff(ArrayList<ArrayList<Board>> solveHistories, ArrayList<ArrayList<boolean[][]>> diffs, ArrayList<ArrayList<Move[]>> moveHistories, int[] boardIndexHolder, int[] solutionIndexHolder) {
         JFrame frame = new JFrame("Grid");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setSize(FRAME_WIDTH, FRAME_HEIGHT);
@@ -98,7 +116,7 @@ public class GUI {
             squares.clear();
             for (int row = 0; row < boardHeight; row++) {
                 for (int col = 0; col < boardWidth; col++) {
-                    JPanel square = getGridSquare(solveHistories, boardIndexHolder, solutionIndexHolder, row, col);
+                    JPanel square = getGridSquare(solveHistories, diffs, moveHistories, boardIndexHolder, solutionIndexHolder, row, col);
                     square.setBackground(Color.BLACK);
                     square.setPreferredSize(new Dimension(100, 100));
                     squares.add(square);
@@ -115,8 +133,8 @@ public class GUI {
         moveArrowPanel.setLayout(new GridLayout(1, 3, 10, 0)); // 3 columns: left arrow, label, right arrow
         moveArrowPanel.setBackground(Color.WHITE);
 
-        javax.swing.JButton leftArrow = new javax.swing.JButton("<");
-        javax.swing.JButton rightArrow = new javax.swing.JButton(">");
+        javax.swing.JButton solutionLeftArrow = new javax.swing.JButton("<");
+        javax.swing.JButton solutionRightArrow = new javax.swing.JButton(">");
 
         // --- Board arrow panel with board label in the same row ---
         JPanel boardArrowPanel = new JPanel();
@@ -128,8 +146,8 @@ public class GUI {
 
         // Helper to update button enabled states
         Runnable updateButtonStates = () -> {
-            leftArrow.setEnabled(solutionIndexHolder[0] > 0);
-            rightArrow.setEnabled(solutionIndexHolder[0] < solveHistories.get(boardIndexHolder[0]).size() - 1);
+            solutionLeftArrow.setEnabled(solutionIndexHolder[0] > 0);
+            solutionRightArrow.setEnabled(solutionIndexHolder[0] < solveHistories.get(boardIndexHolder[0]).size() - 1 || boardIndexHolder[0] < solveHistories.size() - 1);
             boardLeftArrow.setEnabled(boardIndexHolder[0] > 0);
             boardRightArrow.setEnabled(boardIndexHolder[0] < solveHistories.size() - 1);
         };
@@ -142,7 +160,7 @@ public class GUI {
         };
         GUI.updateLabels = updateLabels; // So other threads can call this
 
-        leftArrow.addActionListener(e -> {
+        solutionLeftArrow.addActionListener(e -> {
             if (solutionIndexHolder[0] > 0) {
                 solutionIndexHolder[0]--;
                 updateLabels.run();
@@ -153,7 +171,7 @@ public class GUI {
             }
         });
 
-        rightArrow.addActionListener(e -> {
+        solutionRightArrow.addActionListener(e -> {
             if (solutionIndexHolder[0] < solveHistories.get(boardIndexHolder[0]).size() - 1) {
                 solutionIndexHolder[0]++;
                 updateLabels.run();
@@ -161,6 +179,13 @@ public class GUI {
                 for (JPanel square : squares) {
                     square.repaint();
                 }
+            } else if (boardIndexHolder[0] < solveHistories.size() - 1) {
+                // If at the end of the current board, move to the next board
+                boardIndexHolder[0]++;
+                solutionIndexHolder[0] = 0; // Reset to first step of the new board's solution
+                updateLabels.run();
+                updateButtonStates.run();
+                updateGrid.run(); // Update the grid for the new board
             }
         });
 
@@ -188,9 +213,9 @@ public class GUI {
         updateLabels.run();
         updateButtonStates.run();
 
-        moveArrowPanel.add(leftArrow);
+        moveArrowPanel.add(solutionLeftArrow);
         moveArrowPanel.add(moveLabel);
-        moveArrowPanel.add(rightArrow);
+        moveArrowPanel.add(solutionRightArrow);
 
         boardArrowPanel.add(boardLeftArrow);
         boardArrowPanel.add(boardLabel);
@@ -206,35 +231,51 @@ public class GUI {
         frame.setVisible(true);
     }
 
-    private static JPanel getGridSquare(ArrayList<ArrayList<Board>> solveHistories, int[] boardIndexHolder, int[] solutionIndexHolder, int row, int col) {
+    private static JPanel getGridSquare(ArrayList<ArrayList<Board>> solveHistories, ArrayList<ArrayList<boolean[][]>> diffs, ArrayList<ArrayList<Move[]>> moveHistories, int[] boardIndexHolder, int[] solutionIndexHolder, int row, int col) {
         return new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
+
+                // Fetch the data that's to be rendered
                 Board board = solveHistories.get(boardIndexHolder[0]).get(solutionIndexHolder[0]);         // Workaround for lambda variable capture
+                boolean[][] diff = diffs.get(boardIndexHolder[0]).get(solutionIndexHolder[0]);
+                ArrayList<Coordinate> moveCoordinates = new ArrayList<>();
+                for (Move move : moveHistories.get(boardIndexHolder[0]).get(solutionIndexHolder[0])) {
+                    moveCoordinates.add(move.getStart());
+                    moveCoordinates.add(move.getStart().add(move.getDirection()));
+                }
+
+                Location loc = board.getLocation(row, col);
+                Coordinate coord = loc.getCoordinate();
+
+                // Set some dimensions based on the panel size
+                int minDimension = Math.min(getWidth(), getHeight());
+                int outerCircleDiameter = (int) (minDimension * (loc.isStart() ? 0.85 : 0.65));
+                int lineWidth = (int) (minDimension * 0.4);
+                int innerCircleDiameter = (int) (minDimension * 0.4);
+                int centerX = getWidth() / 2;
+                int centerY = getHeight() / 2;
+                int borderWidth = (int) (minDimension / 16);
 
                 // Work out the color of the circle
                 Color circleColor = Color.GRAY;
-                if (board.getLocation(row, col).getColorIndex() != null) {
-                    circleColor = colors.getColorByIndex(board.getLocation(row, col).getColorIndex());
+                if (loc.getColorIndex() != null) {
+                    circleColor = colors.getColorByIndex(loc.getColorIndex());
                 }
 
                 // Draw the circle
-                g.setColor(circleColor);
-
-                int outerCircleDiameter = (int) (Math.min(getWidth(), getHeight()) * 0.85);
-                int lineWidth = (int) (Math.min(getWidth(), getHeight()) * 0.4);
-                int innerCircleDiameter = (int) (Math.min(getWidth(), getHeight()) * 0.5);
-                int centerX = getWidth() / 2;
-                int centerY = getHeight() / 2;
-                g.fillOval(centerX - outerCircleDiameter / 2, centerY - outerCircleDiameter / 2, outerCircleDiameter, outerCircleDiameter);
+                if ((loc.getRemainingConnections() > 0 && loc.countConnections() > 0) || loc.isStart()) {
+                    g.setColor(circleColor);
+                    g.fillOval(centerX - outerCircleDiameter / 2, centerY - outerCircleDiameter / 2, outerCircleDiameter, outerCircleDiameter);
+                }
 
                 // Draw the connections to each connected grid square
                 for (int i = 0; i < Coordinate.DIRECTIONS.length; i++) {
                     Coordinate dir = Coordinate.DIRECTIONS[i];
-                    if (board.getLocation(row, col).getConnections()[i]) {
-                        int neighborCenterX = centerX + dir.getCol() * getWidth();
-                        int neighborCenterY = centerY + dir.getRow() * getHeight();
+                    int neighborCenterX = centerX + dir.getCol() * getWidth();
+                    int neighborCenterY = centerY + dir.getRow() * getHeight();
+                    if (loc.getConnections()[i]) {
                         g.setColor(circleColor);
                         g.fillRect(
                             Math.min(centerX, neighborCenterX) - lineWidth / 2,
@@ -242,6 +283,25 @@ public class GUI {
                             Math.abs(neighborCenterX - centerX) + lineWidth,
                             Math.abs(neighborCenterY - centerY) + lineWidth
                         );
+                    }
+
+                    int neighborRow = row + dir.getRow();
+                    int neighborCol = col + dir.getCol();
+                    Coordinate neighborCoord = new Coordinate(neighborRow, neighborCol);
+                    if (diff[row][col]) {
+
+                        if (moveCoordinates.contains(loc.getCoordinate()) && !moveCoordinates.contains(neighborCoord)) {
+                            g.setColor(Color.RED);
+                        } else if (!neighborCoord.isInBounds(board) || diff[neighborRow][neighborCol] || (!moveCoordinates.contains(coord) && moveCoordinates.contains(neighborCoord))) {
+                            g.setColor(Color.YELLOW);
+                        } else {
+                            continue;
+                        }
+                        
+                        g.fillRect(dir == Coordinate.RIGHT ? getWidth() : 0 - borderWidth,
+                                    dir == Coordinate.DOWN ? getHeight() : 0 - borderWidth,
+                                    dir == Coordinate.LEFT || dir == Coordinate.RIGHT ? borderWidth : getWidth(),
+                                    dir == Coordinate.UP || dir == Coordinate.DOWN ? borderWidth : getHeight());
                     }
                 }
 

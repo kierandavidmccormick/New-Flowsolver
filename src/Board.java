@@ -276,6 +276,16 @@ public class Board {
         return true;
     }
 
+    public boolean[][] getDiff(Board other) {
+        boolean[][] diff = new boolean[height][width];
+        for (int row = 0; row < height; row++) {
+            for (int col = 0; col < width; col++) {
+                diff[row][col] = grid[row][col].getDiff(other.grid[row][col]);
+            }
+        }
+        return diff;
+    }
+
     // Returns an ascii-art representation of the board for debug purposes
     public String simpleReadout() {
         StringBuilder sb = new StringBuilder();

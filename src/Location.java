@@ -1,5 +1,6 @@
 package src;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 /* Container for all the data associated with a single grid square */
 public class Location {
@@ -354,5 +355,14 @@ public class Location {
     @Override
     public String toString() {
         return "Loc:{" + coordinate.toString() + ", colorIndex=" + colorIndex + "}";
+    }
+
+    // Returns false if the locations are identical in terms of connections and color
+    public boolean getDiff(Location other) {
+
+        if (Arrays.equals(connections, other.connections) && colorIndex == other.colorIndex) {
+            return false;
+        }
+        return true;
     }
 }
