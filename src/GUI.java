@@ -11,7 +11,6 @@ import java.awt.BorderLayout;
 import java.awt.Graphics;
 import java.awt.Dimension;
 
-// TODO: Add exterior corners to the diff boundaries
 // TODO: Add a "play" button to step through the solution automatically
 
 public class GUI {
@@ -345,22 +344,56 @@ public class GUI {
                     Coordinate neighborCoord = new Coordinate(neighborRow, neighborCol);
                     if (diff[row][col]) {
 
+                        boolean drawBorder = false;
+                        boolean drawCorner = false;
+                        Coordinate rightTurnNeighbor = coord.add(Coordinate.rightTurn(dir));
+                        Coordinate rightCornerNeighbor = rightTurnNeighbor.add(dir);
+
+                        // Decide what kind of border to draw, if any
                         if (moveCoordinates.contains(loc.getCoordinate()) && !moveCoordinates.contains(neighborCoord)) {
                             g.setColor(Color.RED);
+                            drawBorder = true;
                         } else if (!neighborCoord.isInBounds(board) || !diff[neighborRow][neighborCol] || (!moveCoordinates.contains(coord) && moveCoordinates.contains(neighborCoord))) {
                             g.setColor(Color.YELLOW);
-                        } else {
-                            continue;
+                            drawBorder = true;
+                        } else if (neighborCoord.isInBounds(board) && rightTurnNeighbor.isInBounds(board) && rightCornerNeighbor.isInBounds(board)) {
+                            // A bunch of elaborate logic to draw interior corners for the diff borders
+                            if (!moveCoordinates.contains(coord) &&
+                                            (!moveCoordinates.contains(neighborCoord) && diff[neighborRow][neighborCol]) &&
+                                            (!moveCoordinates.contains(rightTurnNeighbor) && diff[rightTurnNeighbor.getRow()][rightTurnNeighbor.getCol()]) && 
+                                            (moveCoordinates.contains(rightCornerNeighbor) || !diff[rightCornerNeighbor.getRow()][rightCornerNeighbor.getCol()])) {
+                                g.setColor(Color.YELLOW);
+                                drawCorner = true;
+                            } else if (moveCoordinates.contains(coord) &&
+                                            (moveCoordinates.contains(neighborCoord) || !diff[neighborRow][neighborCol]) &&
+                                            (moveCoordinates.contains(rightTurnNeighbor) || !diff[rightTurnNeighbor.getRow()][rightTurnNeighbor.getCol()]) && 
+                                            (!moveCoordinates.contains(rightCornerNeighbor) && diff[rightTurnNeighbor.getRow()][rightTurnNeighbor.getCol()])) {
+                                g.setColor(Color.RED);
+                                drawCorner = true;
+                                // It's extremely unlikely a red interior corner will ever happen, but I've included it for completeness's sake
+                            }
                         }
 
-                        if (dir == Coordinate.UP) {
-                            g.fillRect(0, 0, getWidth(), borderWidth);
-                        } else if (dir == Coordinate.DOWN) {
-                            g.fillRect(0, getHeight() - borderWidth, getWidth(), borderWidth);
-                        } else if (dir == Coordinate.LEFT) {
-                            g.fillRect(0, 0, borderWidth, getHeight());
-                        } else if (dir == Coordinate.RIGHT) {
-                            g.fillRect(getWidth() - borderWidth, 0, borderWidth, getHeight());
+                        if (drawBorder) {
+                            if (dir == Coordinate.UP) {
+                                g.fillRect(0, 0, getWidth(), borderWidth);
+                            } else if (dir == Coordinate.DOWN) {
+                                g.fillRect(0, getHeight() - borderWidth, getWidth(), borderWidth);
+                            } else if (dir == Coordinate.LEFT) {
+                                g.fillRect(0, 0, borderWidth, getHeight());
+                            } else if (dir == Coordinate.RIGHT) {
+                                g.fillRect(getWidth() - borderWidth, 0, borderWidth, getHeight());
+                            }
+                        } else if (drawCorner) {
+                            if (dir == Coordinate.UP) {
+                                g.fillRect(getWidth() - borderWidth, 0, borderWidth, borderWidth);
+                            } else if (dir == Coordinate.DOWN) {
+                                g.fillRect(0, getHeight() - borderWidth, borderWidth, borderWidth);
+                            } else if (dir == Coordinate.LEFT) {
+                                g.fillRect(0, 0, borderWidth, borderWidth);
+                            } else if (dir == Coordinate.RIGHT) {
+                                g.fillRect(getWidth() - borderWidth, getHeight() - borderWidth, borderWidth, borderWidth);
+                            }
                         }
                     }
                 }
