@@ -292,16 +292,21 @@ public class GUI {
 
                         if (moveCoordinates.contains(loc.getCoordinate()) && !moveCoordinates.contains(neighborCoord)) {
                             g.setColor(Color.RED);
-                        } else if (!neighborCoord.isInBounds(board) || diff[neighborRow][neighborCol] || (!moveCoordinates.contains(coord) && moveCoordinates.contains(neighborCoord))) {
+                        } else if (!neighborCoord.isInBounds(board) || !diff[neighborRow][neighborCol] || (!moveCoordinates.contains(coord) && moveCoordinates.contains(neighborCoord))) {
                             g.setColor(Color.YELLOW);
                         } else {
                             continue;
                         }
-                        
-                        g.fillRect(dir == Coordinate.RIGHT ? getWidth() : 0 - borderWidth,
-                                    dir == Coordinate.DOWN ? getHeight() : 0 - borderWidth,
-                                    dir == Coordinate.LEFT || dir == Coordinate.RIGHT ? borderWidth : getWidth(),
-                                    dir == Coordinate.UP || dir == Coordinate.DOWN ? borderWidth : getHeight());
+
+                        if (dir == Coordinate.UP) {
+                            g.fillRect(0, 0, getWidth(), borderWidth);
+                        } else if (dir == Coordinate.DOWN) {
+                            g.fillRect(0, getHeight() - borderWidth, getWidth(), borderWidth);
+                        } else if (dir == Coordinate.LEFT) {
+                            g.fillRect(0, 0, borderWidth, getHeight());
+                        } else if (dir == Coordinate.RIGHT) {
+                            g.fillRect(getWidth() - borderWidth, 0, borderWidth, getHeight());
+                        }
                     }
                 }
 
