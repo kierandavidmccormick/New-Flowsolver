@@ -6,7 +6,7 @@ import java.util.Arrays;
 public class Location {
 
     private final Coordinate coordinate;
-    private final Boolean[] connections = new Boolean[4];   // Up, Down, Left, Right
+    private final boolean[] connections = new boolean[4];   // Up, Down, Left, Right
     private Integer colorIndex; // Use Integer for nullability
     private final boolean isStart;
     private boolean edited = false; // Whether this location has been edited since the last check;
@@ -310,7 +310,7 @@ public class Location {
         this.colorIndex = colorIndex;
     }
 
-    public Boolean[] getConnections() {
+    public boolean[] getConnections() {
         return connections;
     }
 

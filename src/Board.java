@@ -9,6 +9,9 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONTokener;
 
+// TODO optimize this to reduce the size of a Board object
+// Keep references to any Location objects that haven't been changed, for instance - though this is a bit tricky because of the way the connections work
+
 /* Container class for a game of numberlink */
 public class Board {
     private final int width;

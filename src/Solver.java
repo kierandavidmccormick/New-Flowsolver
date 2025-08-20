@@ -4,12 +4,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-// A note: If all the moves from a given square are deadly, that square is deadly, as is the whole branch of the tree that generated from it
-// I could do something like: globally generate all first moves, then only work locally to try to prove subtrees as fatal
-// More generally, if any square has only deadly subtrees, then that square is deadly, for as far up the tree as that applies
-
-// Even better, we can do short-depth BFS to find a move that's forced, then apply that repeatedly
-
 public class Solver {
     public static int boardsCreated = 0;
 
@@ -44,18 +38,18 @@ public class Solver {
 
             try {
                 Board newBoard = new Board(solution.get(solution.size() - 1));
+                boardsCreated++;
                 for (Move forcedMove : forcedMoves) {
                     newBoard.applyMove(forcedMove);
                 }
                 moveHistory.add(forcedMoves);
                 solution.add(newBoard);
-                boardsCreated++;
                 if (depthLimitAt > 0) {
                     System.out.println("Found forced move: at d=" + depthLimitAt + " " + forcedMoves[0] + (forcedMoves.length > 1 ? " and " + forcedMoves[1] : "") + " - Created " + boardsCreated + " boards so far");
-                    System.out.println(board.simpleReadout());
+                    System.out.println(newBoard.simpleReadout());
                 } else if (depthLimitAt == 0) {
                     System.out.println("Found forced move: at d=" + depthLimitAt + " " + forcedMoves[0] + (forcedMoves.length > 1 ? " and " + forcedMoves[1] : "") + " - Created " + boardsCreated + " boards so far");
-                    System.out.println(board.simpleReadout());
+                    System.out.println(newBoard.simpleReadout());
                 }
             } catch (InvalidMoveException e) {
                 // This shouldn't happen, but if it does, just return the current solution
@@ -69,21 +63,6 @@ public class Solver {
     public static Move[] findForcedMove(Board board, int depthLimit) {
 
         ArrayList<Location> openLocations = board.getOpenLocations();
-        HashMap<Location, ArrayList<Move>> candidates = new HashMap<>();
-        for (Location loc : openLocations) {
-            ArrayList<Move> moves = loc.getValidMoves(board);
-            if (moves.size() == loc.getRemainingConnections()) {
-                // Only one move available; this is a forced move
-                // Unlikely but possible. Usually the local move forcing rules preempt this, but it's possible I've missed an edge case somewhere
-                return moves.toArray(new Move[0]);
-            } else if (moves.size() == 0) {
-                // Something has gone wrong; this location should not be open if there are no valid moves
-                System.err.println("No valid moves for location " + loc.getCoordinate());
-                return null;
-            }
-
-            candidates.put(loc, moves);
-        }
 
         // Check locations with fewer connection possibilities and more open connections first
         // From lowest to highest on countMoveCombinations
@@ -140,38 +119,39 @@ public class Solver {
             sortLocationsByConnections(openLocations, board);
         } else {
             // Sort by the distance to the target to quickly evaluate a move at a particular location
-            sortLocationsByDistance(openLocations, board, target);
+            sortLocationsByDistance(openLocations, target);
         }
 
         // Get the moves for each location
-        HashMap<Location, ArrayList<Move>> validMoves = new HashMap<>();
+        HashMap<Location, ArrayList<Move[]>> validMoveCombos = new HashMap<>();
         for (Location loc : openLocations) {
-            validMoves.put(loc, loc.getValidMoves(board));
+            validMoveCombos.put(loc, loc.getValidMoveCombinations(board));
         }
         
         // Check all open locations for forced moves
         for (Location loc : openLocations) {
-            ArrayList<Move> moves = validMoves.get(loc);
-            if (moves == null || moves.size() < loc.getRemainingConnections()) {
-                return true; // No or insufficient valid moves from this location, so this move is deadly
+            ArrayList<Move[]> moveCombos = validMoveCombos.get(loc);
+            if (moveCombos.isEmpty()) {
+                return true; // No valid move combinations from this location, so this move is deadly
             }
 
             // Check to see if there is at least one valid, non-deadly move
-            Board newBoard = new Board(board);
-            boardsCreated++;
-            for (Move move : moves) {
+            for (Move[] combo : moveCombos) {
+                Board newBoard = new Board(board);
                 try {
-                    newBoard.applyMove(move);
+                    for (Move move : combo) {
+                        newBoard.applyMove(move);
+                    }
                 } catch (InvalidMoveException e) {
                     // Invalid move; skip this one
                     continue;
                 }
-            }
-            if (isDeadly(newBoard, depthLimit - 1, moves.get(0).getStart())) {
-                return true;
+                if (!isDeadly(newBoard, depthLimit - 1, combo[0].getStart())) {      // Since all moves in the combo start from the same location, we can just pick the first one
+                    return false;
+                }
             }
         }
-        return false;
+        return true;
     }
 
     // It's important for performance to pick good locations first - we choose the ones with the most restricted connections first
@@ -196,7 +176,7 @@ public class Solver {
         });
     }
 
-    public static void sortLocationsByDistance(List<Location> locations, Board board, Coordinate target) {
+    public static void sortLocationsByDistance(List<Location> locations, Coordinate target) {
         locations.sort((a, b) -> {
             // Sort by the distance to the target coordinate
             int aDistance = a.getCoordinate().manhattanDistance(target);

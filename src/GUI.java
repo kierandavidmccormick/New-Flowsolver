@@ -38,7 +38,7 @@ public class GUI {
 
         // Start a separate thread to load solutions in the background
         new Thread(() -> {
-            for (int i = solveHistories.size(); i < 270; i++) {
+            for (int i = 0; i < 270; i++) {
                 if (i == 155 || i == 176) continue; // Skip boards 155 and 176 as they have non-unique solutions
 
                 ArrayList<Move[]> moveHistory = new ArrayList<>();
