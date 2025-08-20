@@ -14,7 +14,6 @@ import java.awt.Dimension;
 // TODO: Add exterior corners to the diff boundaries
 // TODO: Round off the line corners
 // TODO: Add a "play" button to step through the solution automatically
-// TODO: Add buttons to skip forward and backward for both boards and solutions
 
 public class GUI {
 
@@ -130,26 +129,35 @@ public class GUI {
 
         // --- Arrow panel with move label in the same row ---
         JPanel moveArrowPanel = new JPanel();
-        moveArrowPanel.setLayout(new GridLayout(1, 3, 10, 0)); // 3 columns: left arrow, label, right arrow
+        moveArrowPanel.setLayout(new GridLayout(1, 5, 10, 0)); // 3 columns: left arrow, label, right arrow
         moveArrowPanel.setBackground(Color.WHITE);
 
+        javax.swing.JButton solutionSkipLeftArrow = new javax.swing.JButton("|<<");
         javax.swing.JButton solutionLeftArrow = new javax.swing.JButton("<");
         javax.swing.JButton solutionRightArrow = new javax.swing.JButton(">");
+        javax.swing.JButton solutionSkipRightArrow = new javax.swing.JButton(">>|");
 
         // --- Board arrow panel with board label in the same row ---
         JPanel boardArrowPanel = new JPanel();
         boardArrowPanel.setLayout(new GridLayout(1, 3, 10, 0)); // 3 columns: left arrow, label, right arrow
         boardArrowPanel.setBackground(Color.WHITE);
 
+        javax.swing.JButton boardSkipLeftArrow = new javax.swing.JButton("|<<");
         javax.swing.JButton boardLeftArrow = new javax.swing.JButton("<");
         javax.swing.JButton boardRightArrow = new javax.swing.JButton(">");
+        javax.swing.JButton boardSkipRightArrow = new javax.swing.JButton(">>|");
 
         // Helper to update button enabled states
         Runnable updateButtonStates = () -> {
+            solutionSkipLeftArrow.setEnabled(solutionIndexHolder[0] > 0);
             solutionLeftArrow.setEnabled(solutionIndexHolder[0] > 0);
             solutionRightArrow.setEnabled(solutionIndexHolder[0] < solveHistories.get(boardIndexHolder[0]).size() - 1 || boardIndexHolder[0] < solveHistories.size() - 1);
+            solutionSkipRightArrow.setEnabled(solutionIndexHolder[0] < solveHistories.get(boardIndexHolder[0]).size() - 1);
+
+            boardSkipLeftArrow.setEnabled(boardIndexHolder[0] > 0);
             boardLeftArrow.setEnabled(boardIndexHolder[0] > 0);
             boardRightArrow.setEnabled(boardIndexHolder[0] < solveHistories.size() - 1);
+            boardSkipRightArrow.setEnabled(boardIndexHolder[0] < solveHistories.size() - 1);
         };
         GUI.updateButtonStates = updateButtonStates; // So other threads can call this
 
@@ -159,6 +167,17 @@ public class GUI {
             boardLabel.setText("Board " + (boardIndexHolder[0] + 1) + "/" + solveHistories.size());
         };
         GUI.updateLabels = updateLabels; // So other threads can call this
+
+        solutionSkipLeftArrow.addActionListener(e -> {
+            if (solutionIndexHolder[0] > 0) {
+                solutionIndexHolder[0] = 0; // Skip to the first move
+                updateLabels.run();
+                updateButtonStates.run();
+                for (JPanel square : squares) {
+                    square.repaint();
+                }
+            }
+        });
 
         solutionLeftArrow.addActionListener(e -> {
             if (solutionIndexHolder[0] > 0) {
@@ -189,6 +208,27 @@ public class GUI {
             }
         });
 
+        solutionSkipRightArrow.addActionListener(e -> {
+            if (solutionIndexHolder[0] < solveHistories.get(boardIndexHolder[0]).size() - 1) {
+                solutionIndexHolder[0] = solveHistories.get(boardIndexHolder[0]).size() - 1; // Skip to the last move
+                updateLabels.run();
+                updateButtonStates.run();
+                for (JPanel square : squares) {
+                    square.repaint();
+                }
+            }
+        });
+
+        boardSkipLeftArrow.addActionListener(e -> {
+            if (boardIndexHolder[0] > 0) {
+                boardIndexHolder[0] = 0; // Skip to the first board
+                solutionIndexHolder[0] = 0;
+                updateLabels.run();
+                updateButtonStates.run();
+                updateGrid.run(); // Update the grid for the new board
+            }
+        });
+
         boardLeftArrow.addActionListener(e -> {
             if (boardIndexHolder[0] > 0) {
                 boardIndexHolder[0]--;
@@ -209,17 +249,31 @@ public class GUI {
             }
         });
 
+        boardSkipRightArrow.addActionListener(e -> {
+            if (boardIndexHolder[0] < solveHistories.size() - 1) {
+                boardIndexHolder[0] = solveHistories.size() - 1; // Skip to the last board
+                solutionIndexHolder[0] = 0;
+                updateLabels.run();
+                updateButtonStates.run();
+                updateGrid.run(); // Update the grid for the new board
+            }
+        });
+
         // Initial button states and labels
         updateLabels.run();
         updateButtonStates.run();
 
+        moveArrowPanel.add(solutionSkipLeftArrow);
         moveArrowPanel.add(solutionLeftArrow);
         moveArrowPanel.add(moveLabel);
         moveArrowPanel.add(solutionRightArrow);
+        moveArrowPanel.add(solutionSkipRightArrow);
 
+        boardArrowPanel.add(boardSkipLeftArrow);
         boardArrowPanel.add(boardLeftArrow);
         boardArrowPanel.add(boardLabel);
         boardArrowPanel.add(boardRightArrow);
+        boardArrowPanel.add(boardSkipRightArrow);
 
         // --- Main panel layout ---
         JPanel mainPanel = new JPanel(new BorderLayout());
