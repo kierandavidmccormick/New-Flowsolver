@@ -37,13 +37,14 @@ public class GUI {
         SwingUtilities.invokeLater(() -> renderStuff(solveHistories, diffs, moveHistories, boardIndexHolder, solutionIndexHolder));
 
         // Start a separate thread to load solutions in the background
+        // TODO don't try to display the GUI until at least one board is loaded
         new Thread(() -> {
             for (int i = 0; i < 270; i++) {
                 if (i == 155 || i == 176) continue; // Skip boards 155 and 176 as they have non-unique solutions
 
                 ArrayList<Move[]> moveHistory = new ArrayList<>();
                 ArrayList<Board> solveHistory = getSolveHistory(i, moveHistory);
-                if (solveHistory == null || solveHistory.isEmpty()) {
+                if (solveHistory == null || solveHistory.isEmpty() || !solveHistory.get(solveHistory.size() - 1).isSolved()) {
                     System.err.println("No solution found for board " + i);
                     break;
                 }

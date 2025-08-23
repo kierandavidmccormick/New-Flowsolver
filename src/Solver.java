@@ -16,6 +16,7 @@ public class Solver {
 
         while (true) {
             // Iterative Deepening Search (IDS) with a depth limit of 4
+
             Move[] forcedMoves = null;
             int depthLimitAt = 0;
             for (int depthLimit = 0; depthLimit <= 4; depthLimit++) {
@@ -51,6 +52,10 @@ public class Solver {
                     System.out.println("Found forced move: at d=" + depthLimitAt + " " + forcedMoves[0] + (forcedMoves.length > 1 ? " and " + forcedMoves[1] : "") + " - Created " + boardsCreated + " boards so far");
                     System.out.println(newBoard.simpleReadout());
                 }
+                if (newBoard.isSolved()) {
+                    System.out.println("Board is solved! - Created " + boardsCreated + " boards in total");
+                    return solution;
+                }
             } catch (InvalidMoveException e) {
                 // This shouldn't happen, but if it does, just return the current solution
                 System.err.println("Invalid move: " + e.getMessage());
@@ -76,7 +81,7 @@ public class Solver {
                 Board testBoard = new Board(board);
                 boardsCreated++;
                 try {
-                    for (Move move : combo) {
+                    for (Move move : combo) {       // TODO make this a method of the Board class
                         testBoard.applyMove(move);
                     }
                 } catch (InvalidMoveException e) {
@@ -84,12 +89,12 @@ public class Solver {
                     continue;
                 }
 
-                if (isDeadly(testBoard, depthLimit, null)) {
+                if (isDeadly(testBoard, depthLimit, null)) {            // TODO set this to location of combo[0]; also eliminate the call at d=0
                     // This move combination leads to a deadly board; skip it
                     continue;
                 }
 
-                validCombos.add(combo);
+                validCombos.add(combo);     // TODO break if validCombos.size() > 1; that's immediately a non-forced move
             }
 
             if (validCombos.size() == 0) {
@@ -125,7 +130,7 @@ public class Solver {
         // Get the moves for each location
         HashMap<Location, ArrayList<Move[]>> validMoveCombos = new HashMap<>();
         for (Location loc : openLocations) {
-            validMoveCombos.put(loc, loc.getValidMoveCombinations(board));
+            validMoveCombos.put(loc, loc.getValidMoveCombinations(board));          // TODO only get these once they're needed; don't generate them all at once
         }
         
         // Check all open locations for forced moves
@@ -136,6 +141,7 @@ public class Solver {
             }
 
             // Check to see if there is at least one valid, non-deadly move
+            boolean hasValidCombo = false;
             for (Move[] combo : moveCombos) {
                 Board newBoard = new Board(board);
                 try {
@@ -147,11 +153,16 @@ public class Solver {
                     continue;
                 }
                 if (!isDeadly(newBoard, depthLimit - 1, combo[0].getStart())) {      // Since all moves in the combo start from the same location, we can just pick the first one
-                    return false;
+                    hasValidCombo = true;                                            // TODO don't recurse if d=0
+                    continue; // Don't bother checking the rest of the combos, all we need is one that's valid
                 }
             }
+
+            if (!hasValidCombo) {
+                return true; // There's at least one location with no valid move combinations, which means this whole branch of the search tree is invalid
+            }
         }
-        return true;
+        return false; // All open locations have at least one valid move combination; the search tree can continue from here
     }
 
     // It's important for performance to pick good locations first - we choose the ones with the most restricted connections first
