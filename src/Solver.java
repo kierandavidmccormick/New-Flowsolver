@@ -1,7 +1,6 @@
 package src;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 
 public class Solver {
@@ -81,20 +80,22 @@ public class Solver {
                 Board testBoard = new Board(board);
                 boardsCreated++;
                 try {
-                    for (Move move : combo) {       // TODO make this a method of the Board class
-                        testBoard.applyMove(move);
-                    }
+                    testBoard.applyMoves(combo);
                 } catch (InvalidMoveException e) {
                     // Skip this move combo, don't check the resulting board
                     continue;
                 }
 
-                if (isDeadly(testBoard, depthLimit, null)) {            // TODO set this to location of combo[0]; also eliminate the call at d=0
+                if (depthLimit > 0 && isDeadly(testBoard, depthLimit, combo[0].getStart())) {
                     // This move combination leads to a deadly board; skip it
                     continue;
                 }
 
-                validCombos.add(combo);     // TODO break if validCombos.size() > 1; that's immediately a non-forced move
+                validCombos.add(combo);
+
+                if (validCombos.size() > 1) {
+                    continue;      // If there's more than one valid combination, we already know there's no forced move here
+                }
             }
 
             if (validCombos.size() == 0) {
@@ -127,15 +128,9 @@ public class Solver {
             sortLocationsByDistance(openLocations, target);
         }
 
-        // Get the moves for each location
-        HashMap<Location, ArrayList<Move[]>> validMoveCombos = new HashMap<>();
-        for (Location loc : openLocations) {
-            validMoveCombos.put(loc, loc.getValidMoveCombinations(board));          // TODO only get these once they're needed; don't generate them all at once
-        }
-        
         // Check all open locations for forced moves
         for (Location loc : openLocations) {
-            ArrayList<Move[]> moveCombos = validMoveCombos.get(loc);
+            ArrayList<Move[]> moveCombos = loc.getValidMoveCombinations(board);
             if (moveCombos.isEmpty()) {
                 return true; // No valid move combinations from this location, so this move is deadly
             }
@@ -145,15 +140,13 @@ public class Solver {
             for (Move[] combo : moveCombos) {
                 Board newBoard = new Board(board);
                 try {
-                    for (Move move : combo) {
-                        newBoard.applyMove(move);
-                    }
+                    newBoard.applyMoves(combo);
                 } catch (InvalidMoveException e) {
                     // Invalid move; skip this one
                     continue;
                 }
-                if (!isDeadly(newBoard, depthLimit - 1, combo[0].getStart())) {      // Since all moves in the combo start from the same location, we can just pick the first one
-                    hasValidCombo = true;                                            // TODO don't recurse if d=0
+                if (depthLimit == 0 || !isDeadly(newBoard, depthLimit - 1, combo[0].getStart())) {      // Since all moves in the combo start from the same location, we can just pick the first one
+                    hasValidCombo = true;
                     continue; // Don't bother checking the rest of the combos, all we need is one that's valid
                 }
             }

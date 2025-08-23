@@ -232,6 +232,12 @@ public class Board {
         updateAll();
     }
 
+    public void applyMoves(Move[] moves) throws InvalidMoveException {
+        for (Move move : moves) {
+            applyMove(move);
+        }
+    }
+
     public void updateMoves() {
         moves.clear();
         moves.addAll(getMoves());
