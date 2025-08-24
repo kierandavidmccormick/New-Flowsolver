@@ -7,6 +7,8 @@ import java.awt.GridLayout;
 import java.util.ArrayList;
 
 import javax.swing.BorderFactory;
+import javax.swing.BoxLayout;
+
 import java.awt.BorderLayout;
 import java.awt.Graphics;
 import java.awt.Dimension;
@@ -33,12 +35,12 @@ public class GUI {
         final int[] boardIndexHolder = {boardIndex};                // Use an array to allow mutation in lambdas
         int solution_index = 0;                                     // Change this to view different moves in a solution
         final int[] solutionIndexHolder = {solution_index};         // Use an array to allow mutation in lambdas
-
-        SwingUtilities.invokeLater(() -> renderStuff(solveHistories, diffs, moveHistories, boardIndexHolder, solutionIndexHolder));
+        boolean playing = false;                                    // Whether the solutions are currently being played automatically
+        final boolean[] playingStatusHolder = {playing};            // Use an array to allow mutation in lambdas
 
         // Start a separate thread to load solutions in the background
-        // TODO don't try to display the GUI until at least one board is loaded
         new Thread(() -> {
+            boolean rendered = false;
             for (int i = 0; i < 270; i++) {
                 if (i == 155 || i == 176) continue; // Skip boards 155 and 176 as they have non-unique solutions
 
@@ -51,6 +53,12 @@ public class GUI {
                 solveHistories.add(solveHistory);
                 diffs.add(getDiffs(solveHistory));
                 moveHistories.add(moveHistory);
+
+                if (!rendered) {
+                    // Wait to render anything until the first board is ready, otherwise the GUI thread will crash
+                    rendered = true;
+                    SwingUtilities.invokeLater(() -> renderStuff(solveHistories, diffs, moveHistories, boardIndexHolder, solutionIndexHolder, playingStatusHolder));
+                }
 
                 // Update button states and labels on the Swing thread
                 SwingUtilities.invokeLater(() -> {
@@ -86,7 +94,7 @@ public class GUI {
         return diffs;
     }
 
-    private static void renderStuff(ArrayList<ArrayList<Board>> solveHistories, ArrayList<ArrayList<boolean[][]>> diffs, ArrayList<ArrayList<Move[]>> moveHistories, int[] boardIndexHolder, int[] solutionIndexHolder) {
+    private static void renderStuff(ArrayList<ArrayList<Board>> solveHistories, ArrayList<ArrayList<boolean[][]>> diffs, ArrayList<ArrayList<Move[]>> moveHistories, int[] boardIndexHolder, int[] solutionIndexHolder, boolean[] playingStatusHolder) {
         JFrame frame = new JFrame("Grid");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setSize(FRAME_WIDTH, FRAME_HEIGHT);
@@ -128,7 +136,7 @@ public class GUI {
 
         // --- Arrow panel with move label in the same row ---
         JPanel moveArrowPanel = new JPanel();
-        moveArrowPanel.setLayout(new GridLayout(1, 5, 10, 0)); // 3 columns: left arrow, label, right arrow
+        moveArrowPanel.setLayout(new GridLayout(1, 5, 10, 0));
         moveArrowPanel.setBackground(Color.WHITE);
 
         javax.swing.JButton solutionSkipLeftArrow = new javax.swing.JButton("|<<");
@@ -138,7 +146,7 @@ public class GUI {
 
         // --- Board arrow panel with board label in the same row ---
         JPanel boardArrowPanel = new JPanel();
-        boardArrowPanel.setLayout(new GridLayout(1, 3, 10, 0)); // 3 columns: left arrow, label, right arrow
+        boardArrowPanel.setLayout(new GridLayout(1, 5, 10, 0));
         boardArrowPanel.setBackground(Color.WHITE);
 
         javax.swing.JButton boardSkipLeftArrow = new javax.swing.JButton("|<<");
@@ -146,17 +154,39 @@ public class GUI {
         javax.swing.JButton boardRightArrow = new javax.swing.JButton(">");
         javax.swing.JButton boardSkipRightArrow = new javax.swing.JButton(">>|");
 
+        JPanel lowerButtonPanel = new JPanel();
+        lowerButtonPanel.setLayout(new GridLayout(1, 3, 10, 10));
+        lowerButtonPanel.setBackground(Color.WHITE);
+
+        javax.swing.JButton playButton = new javax.swing.JButton("Play");
+
+        // Make arrow button text bold
+        java.awt.Font boldFont = solutionLeftArrow.getFont().deriveFont(java.awt.Font.BOLD);
+        solutionSkipLeftArrow.setFont(boldFont);
+        solutionLeftArrow.setFont(boldFont);
+        solutionRightArrow.setFont(boldFont);
+        solutionSkipRightArrow.setFont(boldFont);
+
+        boardSkipLeftArrow.setFont(boldFont);
+        boardLeftArrow.setFont(boldFont);
+        boardRightArrow.setFont(boldFont);
+        boardSkipRightArrow.setFont(boldFont);
+
+        playButton.setFont(boldFont);
+
         // Helper to update button enabled states
         Runnable updateButtonStates = () -> {
             solutionSkipLeftArrow.setEnabled(solutionIndexHolder[0] > 0);
-            solutionLeftArrow.setEnabled(solutionIndexHolder[0] > 0);
-            solutionRightArrow.setEnabled(solutionIndexHolder[0] < solveHistories.get(boardIndexHolder[0]).size() - 1 || boardIndexHolder[0] < solveHistories.size() - 1);
+            solutionLeftArrow.setEnabled(solutionIndexHolder[0] > 0 && !playingStatusHolder[0]);
+            solutionRightArrow.setEnabled((solutionIndexHolder[0] < solveHistories.get(boardIndexHolder[0]).size() - 1 || boardIndexHolder[0] < solveHistories.size() - 1) && !playingStatusHolder[0]);
             solutionSkipRightArrow.setEnabled(solutionIndexHolder[0] < solveHistories.get(boardIndexHolder[0]).size() - 1);
 
-            boardSkipLeftArrow.setEnabled(boardIndexHolder[0] > 0);
-            boardLeftArrow.setEnabled(boardIndexHolder[0] > 0);
-            boardRightArrow.setEnabled(boardIndexHolder[0] < solveHistories.size() - 1);
+            boardSkipLeftArrow.setEnabled(boardIndexHolder[0] > 0 );
+            boardLeftArrow.setEnabled(boardIndexHolder[0] > 0 && !playingStatusHolder[0]);
+            boardRightArrow.setEnabled(boardIndexHolder[0] < solveHistories.size() - 1 && !playingStatusHolder[0]);
             boardSkipRightArrow.setEnabled(boardIndexHolder[0] < solveHistories.size() - 1);
+
+            playButton.setEnabled(!(boardIndexHolder[0] == solveHistories.size() - 1 && solutionIndexHolder[0] == solveHistories.get(boardIndexHolder[0]).size() - 1));
         };
         GUI.updateButtonStates = updateButtonStates; // So other threads can call this
 
@@ -170,6 +200,10 @@ public class GUI {
         solutionSkipLeftArrow.addActionListener(e -> {
             if (solutionIndexHolder[0] > 0) {
                 solutionIndexHolder[0] = 0; // Skip to the first move
+
+                playingStatusHolder[0] = false;
+                playButton.setText("Play");
+
                 updateLabels.run();
                 updateButtonStates.run();
                 for (JPanel square : squares) {
@@ -203,13 +237,17 @@ public class GUI {
                 solutionIndexHolder[0] = 0; // Reset to first step of the new board's solution
                 updateLabels.run();
                 updateButtonStates.run();
-                updateGrid.run(); // Update the grid for the new board
+                updateGrid.run();         // Need to repalace the whole grid and not just repaint it because the board size might have changed
             }
         });
 
         solutionSkipRightArrow.addActionListener(e -> {
             if (solutionIndexHolder[0] < solveHistories.get(boardIndexHolder[0]).size() - 1) {
                 solutionIndexHolder[0] = solveHistories.get(boardIndexHolder[0]).size() - 1; // Skip to the last move
+
+                playingStatusHolder[0] = false;
+                playButton.setText("Play");
+
                 updateLabels.run();
                 updateButtonStates.run();
                 for (JPanel square : squares) {
@@ -222,9 +260,13 @@ public class GUI {
             if (boardIndexHolder[0] > 0) {
                 boardIndexHolder[0] = 0; // Skip to the first board
                 solutionIndexHolder[0] = 0;
+
+                playingStatusHolder[0] = false;
+                playButton.setText("Play");
+
                 updateLabels.run();
                 updateButtonStates.run();
-                updateGrid.run(); // Update the grid for the new board
+                updateGrid.run();
             }
         });
 
@@ -234,7 +276,7 @@ public class GUI {
                 solutionIndexHolder[0] = 0;
                 updateLabels.run();
                 updateButtonStates.run();
-                updateGrid.run(); // Update the grid for the new board
+                updateGrid.run();
             }
         });
 
@@ -244,7 +286,7 @@ public class GUI {
                 solutionIndexHolder[0] = 0;
                 updateLabels.run();
                 updateButtonStates.run();
-                updateGrid.run(); // Update the grid for the new board
+                updateGrid.run();
             }
         });
 
@@ -252,9 +294,79 @@ public class GUI {
             if (boardIndexHolder[0] < solveHistories.size() - 1) {
                 boardIndexHolder[0] = solveHistories.size() - 1; // Skip to the last board
                 solutionIndexHolder[0] = 0;
+
+                playingStatusHolder[0] = false;
+                playButton.setText("Play");
+
                 updateLabels.run();
                 updateButtonStates.run();
-                updateGrid.run(); // Update the grid for the new board
+                updateGrid.run();
+            }
+        });
+
+        Thread animationThread = new Thread(() -> {
+            while (true) {
+                System.out.println("Animation thread running..." + playingStatusHolder[0]);
+                if (playingStatusHolder[0] == true) {    // Check here because it might get changed in the button listener
+
+                    try {
+                        System.out.println("Frame pause");
+                        Thread.sleep(500); // Adjust the delay as needed for animation speed
+                    } catch (InterruptedException ex) {
+                        continue; // Don't keep animating if interrupted
+                    }
+
+                    System.out.println("Playing solutions...");
+
+                    if (solutionIndexHolder[0] < solveHistories.get(boardIndexHolder[0]).size() - 1) {
+                        System.out.println("Moved to solution step " + solutionIndexHolder[0] + " of board " + boardIndexHolder[0]);
+                        solutionIndexHolder[0]++;
+                        updateLabels.run();
+                        for (JPanel square : squares) {
+                            square.repaint();
+                        }
+                    } else if (boardIndexHolder[0] < solveHistories.size() - 1) {
+                        System.out.println("Moved to board " + boardIndexHolder[0]);
+                        // If at the end of the current board, move to the next board
+                        boardIndexHolder[0]++;
+                        solutionIndexHolder[0] = 0; // Reset to first step of the new board's solution
+                        updateLabels.run();
+                        updateGrid.run();         // Need to repalace the whole grid and not just repaint it because the board size might have changed
+                    } else {
+                        // Reached the end of all boards; stop playing
+                        playingStatusHolder[0] = false;
+                        playButton.setText("Play");
+                        System.out.println("Reached the end of all boards.");
+                    }
+                    
+                    updateLabels.run();
+                    updateButtonStates.run();
+                } else {
+                    try {
+                        System.out.println("Animation paused.");
+                        Thread.sleep(10000); // Sleep to avoid busy-waiting
+                    } catch (InterruptedException ex) {
+                        System.out.println("Don't play anything.");
+                        Thread.currentThread().interrupt();
+                    }
+                }
+            }
+        });
+        animationThread.start();
+
+        playButton.addActionListener(e -> {
+            if (!playingStatusHolder[0]) {
+                playingStatusHolder[0] = true;
+                playButton.setText("Pause");
+                updateButtonStates.run();
+                System.out.println("Playing..." + playingStatusHolder[0]);
+                animationThread.interrupt(); // Wake up the animation thread if it's sleeping
+            } else {
+                playingStatusHolder[0] = false;
+                playButton.setText("Play");
+                updateButtonStates.run();
+                System.out.println("Pausing..." + playingStatusHolder[0]);
+                // Don't interrupt the animation thread here; just let it check the status and pause itself
             }
         });
 
@@ -274,11 +386,17 @@ public class GUI {
         boardArrowPanel.add(boardRightArrow);
         boardArrowPanel.add(boardSkipRightArrow);
 
+        lowerButtonPanel.add(new JPanel()); // Empty panel to take up space
+        lowerButtonPanel.add(playButton);
+        lowerButtonPanel.add(new JPanel()); // Empty panel to take up space
+
         // --- Main panel layout ---
-        JPanel mainPanel = new JPanel(new BorderLayout());
-        mainPanel.add(boardArrowPanel, BorderLayout.NORTH);
-        mainPanel.add(gridPanel, BorderLayout.CENTER);
-        mainPanel.add(moveArrowPanel, BorderLayout.SOUTH);
+        JPanel mainPanel = new JPanel();
+        mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
+        mainPanel.add(boardArrowPanel);
+        mainPanel.add(gridPanel);
+        mainPanel.add(moveArrowPanel);
+        mainPanel.add(lowerButtonPanel);
 
         frame.add(mainPanel, BorderLayout.CENTER);
         frame.setVisible(true);
