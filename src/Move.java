@@ -1,7 +1,10 @@
 package src;
 
-// For now, this is just a container class
-// Later on, this will also contain heuristics for move ranking
+/**
+ * Represents a move in the game, defined by a starting coordinate, a direction, and an evaluated score.
+ * Right now, this is just a data structure, but, in the future, it might be expanded to evaluate move quality as well.
+ */
+
 public class Move {
     private final Coordinate start;
     private final Coordinate direction;

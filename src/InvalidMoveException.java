@@ -1,8 +1,13 @@
 package src;
 
-/* Custom exception for invalid moves 
+/**
+ * Custom exception for invalid moves 
  * Exists to let the solver know when it's found an invalid move
- * It's valid and expected for the solver to generate invalid moves, that's not a bug
+ * It's valid and expected for the solver to generate invalid moves, that's an integral part of the backtracking algorithm
+ * This exception is just a way to communicate that information back to the solver
+ * 
+ * Potential improvements:
+ * - This might be an inefficient way to handle invalid moves, as exceptions can be costly in terms of performance
 */
 public class InvalidMoveException extends Throwable{
     private final String message;

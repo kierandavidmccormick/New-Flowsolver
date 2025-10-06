@@ -11,6 +11,16 @@ import org.json.JSONTokener;
 
 import java.awt.Color;
 
+/**
+ * A class to manage colors loaded from a JSON file.
+ * It allows retrieval of colors by index or name, and generates random colors for unknown indexes.
+ * 
+ * To be revised in the future when the import formats are unified and all colors are randomized
+ * 
+ * Potential improvements:
+ * - Enforce some sort of distance mechanism when generating random colors to avoid similar colors.
+ */
+
 public class Colors {
     // Map of color indexes to Color objects
     private final Map<Integer, Color> COLOR_INDEX_MAP = new HashMap<>();

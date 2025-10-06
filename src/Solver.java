@@ -3,9 +3,25 @@ package src;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * The main home of the algorithm itself used to solve Numberlink puzzles.
+ * It uses Iterative Deepening Search (IDS) to minimize memory usage while still keeping the search tree as shallow as possible.
+ * Additionally, there's a mechanism of "proof by counterexample" to find moves that inevitably lead to a dead end, allowing the solver to skip them entirely.
+ * 
+ * Potential improvements:
+ * - Implement more sophisticated heuristics for choosing which locations to evaluate first, more sophisticated than just the shallowest depth
+ */
+
 public class Solver {
+    // Count of boards created during the solving process, for performance monitoring and debugging
     public static int boardsCreated = 0;
 
+    /**
+     * Solve the given board, returning a list of boards representing the solution path.
+     * @param board The board to solve
+     * @param moveHistory List in which to store the history of moves made to reach each board in the solution path
+     * @return A list of boards representing the solution path
+     */
     public static ArrayList<Board> solveBoard(Board board, ArrayList<Move[]> moveHistory) {
         boardsCreated = 0;
         ArrayList<Board> solution = new ArrayList<>();
@@ -15,6 +31,7 @@ public class Solver {
 
         while (true) {
             // Iterative Deepening Search (IDS) with a depth limit of 4
+            // The depth limit is only there to stop the algorithm from running forever on unsolvable boards; it can be increased if necessary
 
             Move[] forcedMoves = null;
             int depthLimitAt = 0;
@@ -24,8 +41,8 @@ public class Solver {
                     System.out.println("Searching for forced moves at depth " + depthLimit + " - Created " + boardsCreated + " boards so far");
                 }
 
-                // Try to find a forced move
-                forcedMoves = findForcedMove(solution.get(solution.size() - 1), depthLimit);
+                // Try to find a forced move at the current depth limit
+                forcedMoves = findForcedMoves(solution.get(solution.size() - 1), depthLimit);
                 if (forcedMoves != null || board.isSolved()) {
                     depthLimitAt = depthLimit;
                     break;
@@ -36,6 +53,7 @@ public class Solver {
                 return solution;
             }
 
+            // Apply the forced move(s) that were just found to generate the next board state
             try {
                 Board newBoard = new Board(solution.get(solution.size() - 1));
                 boardsCreated++;
@@ -44,13 +62,15 @@ public class Solver {
                 }
                 moveHistory.add(forcedMoves);
                 solution.add(newBoard);
+
                 if (depthLimitAt > 0) {
                     System.out.println("Found forced move: at d=" + depthLimitAt + " " + forcedMoves[0] + (forcedMoves.length > 1 ? " and " + forcedMoves[1] : "") + " - Created " + boardsCreated + " boards so far");
                     System.out.println(newBoard.simpleReadout());
-                } else if (depthLimitAt == 0) {
+                } if (depthLimitAt == 0) {
                     System.out.println("Found forced move: at d=" + depthLimitAt + " " + forcedMoves[0] + (forcedMoves.length > 1 ? " and " + forcedMoves[1] : "") + " - Created " + boardsCreated + " boards so far");
-                    System.out.println(newBoard.simpleReadout());
+                    // System.out.println(newBoard.simpleReadout());
                 }
+                
                 if (newBoard.isSolved()) {
                     System.out.println("Board is solved! - Created " + boardsCreated + " boards in total");
                     return solution;
@@ -63,8 +83,13 @@ public class Solver {
         }
     }
 
-    // Returns an array because it's possible for one location to have multiple forced moves (e.g. a corner)
-    public static Move[] findForcedMove(Board board, int depthLimit) {
+    /**
+     * Find a set of forced moves for the given board at the specified depth limit.
+     * @param board The board to analyze
+     * @param depthLimit The maximum depth to search for forced moves
+     * @return An array of forced moves, or null if none are found
+     */
+    public static Move[] findForcedMoves(Board board, int depthLimit) {
 
         ArrayList<Location> openLocations = board.getOpenLocations();
 
@@ -72,29 +97,31 @@ public class Solver {
         // From lowest to highest on countMoveCombinations
         sortLocationsByConnections(openLocations, board);
 
-        // Like the above, but operating on move combinations rather than individual moves
+        // Check all open locations for forced moves
         for (Location loc : openLocations) {
             ArrayList<Move[]> combos = loc.getValidMoveCombinations(board);
-            ArrayList<Move[]> validCombos = new ArrayList<>();
+            ArrayList<Move[]> validCombos = new ArrayList<>(2); // We only care if there's 0, 1, or more than 1 valid combination, so we can limit the size of this list to 2
+            
+            // Filter each move combination to see if it leads to an invalid board or dead-end; keep only those that don't
             for (Move[] combo : combos) {
                 Board testBoard = new Board(board);
                 boardsCreated++;
                 try {
                     testBoard.applyMoves(combo);
                 } catch (InvalidMoveException e) {
-                    // Skip this move combo, don't check the resulting board
+                    // Leads to an invalid board; eliminate this one
                     continue;
                 }
 
                 if (depthLimit > 0 && isDeadly(testBoard, depthLimit, combo[0].getStart())) {
-                    // This move combination leads to a deadly board; skip it
+                    // Leads to a dead-end; eliminate this one
                     continue;
                 }
 
                 validCombos.add(combo);
 
                 if (validCombos.size() > 1) {
-                    continue;      // If there's more than one valid combination, we already know there's no forced move here
+                    continue;      // If there's more than one valid combination, we already know there's no forced move here, so skip the rest of the checks
                 }
             }
 
@@ -106,12 +133,21 @@ public class Solver {
                 // If there's only one combination left, return it
                 return validCombos.get(0);
             }
+            // Otherwise, if there's more than one valid combination, we can't make a forced move here, so we've found nothing
 
         }
         return null;
     }
 
-    // A board is deadly if there are no valid moves from an open location, or if all valid moves from an open location lead to a deadly board
+    /**
+     * Check if the given board is "deadly", meaning that it inevitably leads to a dead end where at least one location has no valid moves left.
+     * Note that a deadly location will still have valid moves available, but searching down any of those paths will eventually lead to a dead end before the puzzle is solved.
+     * This is done using a recursive, depth-limited search.
+     * @param board The board to check
+     * @param depthLimit The depth limit for the search
+     * @param target The coordinate to prioritize when sorting locations; if null, locations are sorted by number of connections instead
+     * @return True if the board is deadly, false otherwise
+     */
     public static boolean isDeadly(Board board, int depthLimit, Coordinate target) {
         if (depthLimit == 0) {
             // Too deep; give up
@@ -145,6 +181,8 @@ public class Solver {
                     // Invalid move; skip this one
                     continue;
                 }
+
+                // Deepen the search to see if this move leads to a dead end
                 if (depthLimit == 0 || !isDeadly(newBoard, depthLimit - 1, combo[0].getStart())) {      // Since all moves in the combo start from the same location, we can just pick the first one
                     hasValidCombo = true;
                     continue; // Don't bother checking the rest of the combos, all we need is one that's valid
@@ -158,8 +196,13 @@ public class Solver {
         return false; // All open locations have at least one valid move combination; the search tree can continue from here
     }
 
-    // It's important for performance to pick good locations first - we choose the ones with the most restricted connections first
-    // I make this a total ordering so the search is deterministic
+    /**
+     * Sort the given list of locations by the number of connections available, then by their coordinates.
+     * It's important for performance to pick good locations first - we choose the ones with the most restricted connections first
+     * This is a total ordering so the search is deterministic
+     * @param locations The list of locations to sort
+     * @param board The board containing the locations
+     */
     public static void sortLocationsByConnections(List<Location> locations, Board board) {
         locations.sort((a, b) -> {
             // Sort by the number of move combinations available at each location
@@ -180,6 +223,12 @@ public class Solver {
         });
     }
 
+    /**
+     * Sort the given list of locations by their Manhattan distance to the target coordinate, then by their coordinates.
+     * This is a total ordering so the search is deterministic
+     * @param locations The list of locations to sort
+     * @param target The target coordinate to sort by distance to
+     */
     public static void sortLocationsByDistance(List<Location> locations, Coordinate target) {
         locations.sort((a, b) -> {
             // Sort by the distance to the target coordinate

@@ -1,6 +1,8 @@
 package src;
 /**
  * Represents a coordinate in a 2D grid.
+ * 
+ * To be revised in the future to be a pure abstract class without any associated data members to reduce overhead.
  */
 public class Coordinate {
     private final int row;

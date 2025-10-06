@@ -9,11 +9,25 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONTokener;
 
-// TODO optimize this to reduce the size of a Board object
-// Keep references to any Location objects that haven't been changed, for instance - though this is a bit tricky because of the way the connections work
+/**
+ * Represents the state of a Numberlink board.
+ * Contains the grid of locations and methods for manipulating the board state.
+ * 
+ * There are a large number of special cases and rules that need to be handled when applying moves and updating the board state, done in order to make the largest possible number of inferences from a given move and prune the search space as much as possible.
+ * 
+ * It has a bunch of different constructors because I was indecisive about how I wanted to represent them initially. This will be revised at some point.
+ * 
+ * Potential improvements:
+ * - Reduce the size of the Board class by having the width and height be provided by the grid array dimensions instead of storing them separately
+ * - Reduce the size of the Board class by not keeping the updatesScheduled queue beyond the point in which it is needed
+ * - Similarly, the moves queue
+ * - Don't automatically duplicate the Location objects in the copy constructor; instead, create new ones on an as-needed basis
+ * - Improve applyMoves to be more efficient when applying multiple moves at once
+ * - Reduce the number of separate constructors and unify all the different representations of a board into a single one
+ */
 
-/* Container class for a game of numberlink */
 public class Board {
+    // Dimensions of the board
     private final int width;
     private final int height;
     private final Location[][] grid;
@@ -26,7 +40,7 @@ public class Board {
     public PriorityQueue<Location> updatesScheduled;
 
     /**
-     * @param filename Path to the JSON file containing the board data
+     * @param grid The grid of locations making up this board
      */
     public Board(Location[][] grid) {
         this.grid = grid;
@@ -39,7 +53,10 @@ public class Board {
         });
     }
 
-    // Copy constructor
+    /**
+     * Copy constructor; creates a deep copy of another board
+     * @param other The board to copy
+     */
     public Board(Board other) {
         this(new Location[other.grid.length][other.grid[0].length]);
 
@@ -50,11 +67,20 @@ public class Board {
         }
     }
 
+    /**
+     * Create a board from an array of strings, where each string represents a row of the board
+     * @param contents The array of strings representing the board
+     */
     public Board(String[] contents) {
         this(getGridFromString(contents));
         scheduleAll();
     }
 
+    /**
+     * Convert an array of strings into a grid of Location objects
+     * @param contents The array of strings representing the board
+     * @return A 2D array of Location objects
+     */
     private static Location[][] getGridFromString(String[] contents) {
         Location[][] grid = new Location[contents.length][contents[0].length()];
 
@@ -72,10 +98,21 @@ public class Board {
         return grid;
     }
 
+    /**
+     * Create a board by reading it from an archive file
+     * @param archivePath The path to the archive file
+     * @param index The index of the board within the archive
+     */
     public Board(String archivePath, int index) {
         this(getStringFromArchive(archivePath, index));
     }
 
+    /**
+     * Read a board from an archive file
+     * @param archivePath The path to the archive file
+     * @param index The index of the board within the archive
+     * @return An array of strings representing the board, or null if there was an error
+     */
     private static String[] getStringFromArchive(String archivePath, int index) {
         // Open a file
         try (BufferedReader reader = new BufferedReader(new FileReader(archivePath))) {
@@ -115,11 +152,20 @@ public class Board {
         }
     }
 
+    /**
+     * Create a board by reading it from a JSON file
+     * @param filePath The path to the JSON file
+     */
     public Board(String filePath) {
         this(getGridFromFile(filePath));
         scheduleAll();
     }
 
+    /**
+     * Read a board from a JSON file
+     * @param filePath The path to the JSON file
+     * @return A 2D array of Location objects representing the board, or null if there was an error
+     */
     private static Location[][] getGridFromFile(String filePath) {
         try (FileReader reader = new FileReader(filePath)) {
             JSONObject obj = new JSONObject(new JSONTokener(reader));
@@ -173,6 +219,9 @@ public class Board {
         }
     }
 
+    /**
+     * Schedule all locations for an update
+     */
     public void scheduleAll() {
         for (Location[] row : grid) {
             for (Location loc : row) {
@@ -183,6 +232,10 @@ public class Board {
         }
     }
 
+    /**
+     * Get a list of all possible moves from the current board state
+     * @return A list of all possible moves
+     */
     public ArrayList<Move> getMoves() {
         ArrayList<Move> moves = new ArrayList<>();
 
@@ -207,9 +260,13 @@ public class Board {
         return moves;
     }
 
+    /**
+     * Get a list of all open locations (locations with at least one remaining connection)
+     * @return A list of all open locations
+     */
     public ArrayList<Location> getOpenLocations() {
-        // Returns a list of locations that have at least one open connection
         ArrayList<Location> openLocations = new ArrayList<>();
+
         for (Location[] row : grid) {
             for (Location loc : row) {
                 if (loc.getRemainingConnections() > 0) {
@@ -220,6 +277,11 @@ public class Board {
         return openLocations;
     }
 
+    /**
+     * Apply a move to the board, updating the relevant locations and scheduling updates as necessary
+     * @param move The move to apply
+     * @throws InvalidMoveException If the move produces an invalid board state
+     */
     public void applyMove(Move move) throws InvalidMoveException {
         Location start = getLocation(move.getStart());
         Coordinate direction = move.getDirection();
@@ -232,17 +294,29 @@ public class Board {
         updateAll();
     }
 
+    /**
+     * Apply a series of moves to the board, updating the relevant locations and scheduling updates as necessary
+     * @param moves The moves to apply
+     * @throws InvalidMoveException If any of the moves produce an invalid board state
+     */
     public void applyMoves(Move[] moves) throws InvalidMoveException {
         for (Move move : moves) {
             applyMove(move);
         }
     }
 
+    /**
+     * Update the moves queue with all possible moves from the current board state
+     */
     public void updateMoves() {
         moves.clear();
         moves.addAll(getMoves());
     }
 
+    /**
+     * Update all locations that are scheduled for an update
+     * @throws InvalidMoveException If any of the updates produce an invalid board state
+     */
     public void updateAll() throws InvalidMoveException {
         Location loc;
         while ((loc = updatesScheduled.poll()) != null) {
@@ -250,30 +324,61 @@ public class Board {
         }
     }
 
+    /**
+     * Get a location at a specific row and column
+     * @param row The row of the location
+     * @param col The column of the location
+     * @return The location at the specified row and column
+     */
     public Location getLocation(int row, int col) {
         return grid[row][col];
     }
 
+    /**
+     * Get a location at a specific coordinate
+     * @param coordinate The coordinate of the location
+     * @return The location at the specified coordinate
+     */
     public Location getLocation(Coordinate coordinate) {
         return grid[coordinate.getRow()][coordinate.getCol()];
     }
 
+    /**
+     * Get the grid of locations making up this board
+     * @return The grid of locations
+     */
     public Location[][] getGrid() {
         return grid;
     }
 
+    /**
+     * Get the moves priority queue
+     * @return The moves priority queue
+     */
     public PriorityQueue<Move> getMovesQueue() {
         return moves;
     }
 
+    /**
+     * Get the width of the board
+     * @return The width of the board
+     */
     public int getWidth() {
         return width;
     }
 
+    /**
+     * Get the height of the board
+     * @return The height of the board
+     */
     public int getHeight() {
         return height;
     }
 
+    /**
+     * Check if the board is solved - all locations have zero remaining connections and have a color assigned
+     * @return True if the board is solved, false otherwise
+     */
     public boolean isSolved() {
         for (Location[] row : grid) {
             for (Location loc : row) {
@@ -285,6 +390,11 @@ public class Board {
         return true;
     }
 
+    /**
+     * Get a boolean grid representing the differences between this board and another board
+     * @param other The board to compare to
+     * @return A 2D boolean array where true indicates a difference in the corresponding position between the two boards
+     */
     public boolean[][] getDiff(Board other) {
         boolean[][] diff = new boolean[height][width];
         for (int row = 0; row < height; row++) {
@@ -295,7 +405,10 @@ public class Board {
         return diff;
     }
 
-    // Returns an ascii-art representation of the board for debug purposes
+    /**
+     * Get a simple string representation of the board for debugging purposes
+     * @return A string representation of the board
+     */
     public String simpleReadout() {
         StringBuilder sb = new StringBuilder();
         sb.append("\n   ");

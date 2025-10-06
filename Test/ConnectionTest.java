@@ -12,6 +12,16 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 
+/**
+ * Tests for connection logic in the Location class.
+ * This includes tests for basic connections, color propagation, blocking logic, u-turn detection, and connection propagation.
+ * This is particuarly important to test because the connection logic is complex and doing it correctly is essential to the functioning of the solver.
+ * 
+ * Note that these are more integration tests than unit tests, because the connection logic is inherently dependent on the state of the board.
+ * 
+ * Eventually these tests will need to be revised (again) to work with the new import format and generated colors.
+ */
+
 public class ConnectionTest {
     @Test
     public void connectionTest() {
@@ -204,7 +214,7 @@ public class ConnectionTest {
         }
     }
 
-    // This is an end-to-end test rather than a unit test because this behavior is still fluid
+    // A more complex test case to ensure the connection propagation logic works correctly
     @Test
     public void connectionPropagationTest() {
         try {

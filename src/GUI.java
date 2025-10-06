@@ -13,8 +13,6 @@ import java.awt.BorderLayout;
 import java.awt.Graphics;
 import java.awt.Dimension;
 
-// TODO: Add a "play" button to step through the solution automatically
-
 public class GUI {
 
     private static final int FRAME_WIDTH = 1000;
